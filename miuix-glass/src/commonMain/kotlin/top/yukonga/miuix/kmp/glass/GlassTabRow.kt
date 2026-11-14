@@ -20,6 +20,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -196,6 +197,9 @@ object GlassTabRowDefaults {
  * @param height Height of a tab. [GlassTabRowDefaults.NeutralHeight] goes with the neutral colours.
  * @param tabGap Gap between two tabs.
  * @param colors The colours the tabs wear.
+ * @param samplingEnabled Per-position switch for the backdrop sampling. Offscreen tabs can opt out
+ *   to avoid allocating an offscreen layer each; they keep their resting fills, shadow and stroke.
+ *   Defaults to always enabled so existing callers are unchanged.
  */
 @Composable
 fun GlassTabRow(
@@ -213,6 +217,7 @@ fun GlassTabRow(
     height: Dp = GlassTabRowDefaults.Height,
     tabGap: Dp = GlassTabRowDefaults.TabGap,
     colors: GlassTabColors = GlassTabRowDefaults.primaryColors(),
+    samplingEnabled: (Int) -> Boolean = { true },
 ) {
     if (tabs.isEmpty()) return
     val index = selectedIndex.coerceIn(0, tabs.lastIndex)
@@ -257,6 +262,11 @@ fun GlassTabRow(
                     val settled = target.value
                     return if (selected) settled else lerp(colors.restingContainerColor, settled, ramp)
                 }
+                // Collapse a visible-range change into a per-tab Boolean so scrolling only
+                // recomposes the tabs whose sampling state actually flips.
+                val samplingOn by remember(samplingEnabled, position) {
+                    derivedStateOf { samplingEnabled(position) }
+                }
                 val materialSurface = if (resolvedBackdrop != null && underlayMaterial != null) {
                     Modifier
                         .glassShadow(shape, shadow, alpha * ramp)
@@ -268,10 +278,11 @@ fun GlassTabRow(
                             material = resolvedMaterial,
                             underlayMaterial = underlayMaterial,
                             stroke = stroke,
+                            enabled = samplingOn,
                         )
                 } else {
                     Modifier.glassPanel(
-                        backdrop = resolvedBackdrop,
+                        backdrop = if (samplingOn) resolvedBackdrop else null,
                         shape = shape,
                         style = style,
                         alpha = alpha * ramp,
