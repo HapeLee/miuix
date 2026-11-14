@@ -28,11 +28,11 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.VerticalScrollBar
 import top.yukonga.miuix.kmp.basic.rememberScrollBarAdapter
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.interfaces.ExperimentalScrollBarApi
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeColorSpec
@@ -44,7 +44,7 @@ import utils.pageScrollModifiers
 import utils.rememberBlurBackdrop
 
 private val NavigationBarDisplayModeOptions = listOf("IconAndText", "IconOnly", "IconWithSelectedLabel")
-private val FloatingNavigationBarStyleOptions = listOf("Default", "Glass", "iOS-like")
+private val FloatingNavigationBarStyleOptions = listOf("Original", "Glass", "iOS-like")
 private val FloatingNavigationBarPositionOptions = listOf("Center", "Start", "End")
 private val FloatingToolbarPositionOptions =
     listOf("TopStart", "CenterStart", "BottomStart", "TopEnd", "CenterEnd", "BottomEnd", "TopCenter", "BottomCenter")
@@ -52,11 +52,11 @@ private val FloatingToolbarOrientationOptions = listOf("Horizontal", "Vertical")
 private val FabPositionOptions = listOf("Start", "Center", "End", "EndOverlay")
 private val ColorModeOptions = listOf("System", "Light", "Dark", "MonetSystem", "MonetLight", "MonetDark")
 private val NavTransitionStyleOptions = listOf("Miuix", "AOSP")
-private val TopAppBarStyleOptions = listOf("Default", "Glass")
+private val TopAppBarStyleOptions = listOf("Original", "Glass")
 private val PaletteStyleOptions = ThemePaletteStyle.entries.map { it.name }
 private val ColorSpecOptions = ThemeColorSpec.entries.map { it.name }
 private val KeyColorOptions = listOf("Default") + ui.KeyColors.map { it.first }
-private val PagerGestureModeOptions = listOf("Default", "Cross-Axis", "iOS-like")
+private val PagerGestureModeOptions = listOf("Default", "Cross-Axis")
 
 @Composable
 fun SettingsPage(
@@ -126,14 +126,16 @@ private fun SettingsContent(
                         checked = appState.showFPSMonitor,
                         onCheckedChange = { updateAppState { state -> state.copy(showFPSMonitor = it) } },
                     )
-                    OverlayDropdownPreference(
+                    GlassDropdownPreference(
+                        backdrop = backdrop,
                         title = "Color Mode",
                         items = ColorModeOptions,
                         selectedIndex = appState.colorMode,
                         onSelectedIndexChange = { updateAppState { state -> state.copy(colorMode = it) } },
                     )
                     AnimatedVisibility(visible = appState.colorMode in 3..5) {
-                        OverlayDropdownPreference(
+                        GlassDropdownPreference(
+                            backdrop = backdrop,
                             title = "Key Color",
                             items = KeyColorOptions,
                             selectedIndex = appState.seedIndex,
@@ -142,7 +144,8 @@ private fun SettingsContent(
                     }
                     AnimatedVisibility(visible = appState.colorMode in 3..5 && appState.seedIndex > 0) {
                         Column {
-                            OverlayDropdownPreference(
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
                                 title = "Palette Style",
                                 items = PaletteStyleOptions,
                                 selectedIndex = appState.paletteStyle,
@@ -161,7 +164,8 @@ private fun SettingsContent(
                                 !isSpec2025Supported -> Triple(listOf("Spec2021"), 0, false)
                                 else -> Triple(ColorSpecOptions, appState.colorSpec, true)
                             }
-                            OverlayDropdownPreference(
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
                                 title = "Color Spec",
                                 enabled = colorSpecEnabled,
                                 items = colorSpecItems,
@@ -195,7 +199,8 @@ private fun SettingsContent(
                         onCheckedChange = { updateAppState { state -> state.copy(enablePageUserScroll = it) } },
                     )
                     AnimatedVisibility(visible = appState.enablePageUserScroll) {
-                        OverlayDropdownPreference(
+                        GlassDropdownPreference(
+                            backdrop = backdrop,
                             title = "Pager Gesture Mode",
                             items = PagerGestureModeOptions,
                             selectedIndex = appState.pagerInterceptionMode,
@@ -209,13 +214,14 @@ private fun SettingsContent(
                     )
                     AnimatedVisibility(visible = appState.showTopAppBar) {
                         Column {
-                            OverlayDropdownPreference(
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
                                 title = "TopAppBar Style",
                                 items = TopAppBarStyleOptions,
                                 selectedIndex = appState.topAppBarStyle,
                                 onSelectedIndexChange = { updateAppState { state -> state.copy(topAppBarStyle = it) } },
                             )
-                            AnimatedVisibility(visible = appState.topAppBarStyle == 1) {
+                            AnimatedVisibility(visible = appState.topAppBarStyle == 1 && isRuntimeShaderSupported()) {
                                 SwitchPreference(
                                     title = "Glass Top Bar Progressive Blur",
                                     checked = appState.glassTopBarProgressiveBlur,
@@ -237,7 +243,8 @@ private fun SettingsContent(
                         )
                     }
                     AnimatedVisibility(visible = appState.showNavigationBar && !isWideScreen && !appState.useFloatingNavigationBar) {
-                        OverlayDropdownPreference(
+                        GlassDropdownPreference(
+                            backdrop = backdrop,
                             title = "NavigationBar Mode",
                             items = NavigationBarDisplayModeOptions,
                             selectedIndex = appState.navigationBarMode,
@@ -253,7 +260,8 @@ private fun SettingsContent(
                             )
                             AnimatedVisibility(visible = appState.useFloatingNavigationBar) {
                                 Column {
-                                    OverlayDropdownPreference(
+                                    GlassDropdownPreference(
+                                        backdrop = backdrop,
                                         title = "FloatingNavigationBar Style",
                                         items = FloatingNavigationBarStyleOptions,
                                         selectedIndex = appState.floatingNavigationBarStyle,
@@ -261,7 +269,8 @@ private fun SettingsContent(
                                     )
                                     AnimatedVisibility(visible = appState.floatingNavigationBarStyle == 0) {
                                         Column {
-                                            OverlayDropdownPreference(
+                                            GlassDropdownPreference(
+                                                backdrop = backdrop,
                                                 title = "FloatingNavigationBar Position",
                                                 items = FloatingNavigationBarPositionOptions,
                                                 selectedIndex = appState.floatingNavigationBarPosition,
@@ -280,13 +289,15 @@ private fun SettingsContent(
                     )
                     AnimatedVisibility(visible = appState.showFloatingToolbar) {
                         Column {
-                            OverlayDropdownPreference(
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
                                 title = "FloatingToolbar Position",
                                 items = FloatingToolbarPositionOptions,
                                 selectedIndex = appState.floatingToolbarPosition,
                                 onSelectedIndexChange = { updateAppState { state -> state.copy(floatingToolbarPosition = it) } },
                             )
-                            OverlayDropdownPreference(
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
                                 title = "FloatingToolbar Orientation",
                                 items = FloatingToolbarOrientationOptions,
                                 selectedIndex = appState.floatingToolbarOrientation,
@@ -300,7 +311,8 @@ private fun SettingsContent(
                         onCheckedChange = { updateAppState { state -> state.copy(showFloatingActionButton = it) } },
                     )
                     AnimatedVisibility(visible = appState.showFloatingActionButton) {
-                        OverlayDropdownPreference(
+                        GlassDropdownPreference(
+                            backdrop = backdrop,
                             title = "FloatingActionButton Position",
                             items = FabPositionOptions,
                             selectedIndex = appState.floatingActionButtonPosition,
@@ -314,7 +326,8 @@ private fun SettingsContent(
                 Card(
                     modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp),
                 ) {
-                    OverlayDropdownPreference(
+                    GlassDropdownPreference(
+                        backdrop = backdrop,
                         title = "Transition Style",
                         items = NavTransitionStyleOptions,
                         selectedIndex = appState.navTransitionStyle,

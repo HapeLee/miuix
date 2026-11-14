@@ -11,7 +11,7 @@ title: GlassDropdownPopup
 </div>
 
 ::: warning 背景采样
-使用背景采样时，`backdrop` 应记录组件后方的不透明内容，不能包含使用该采样的玻璃表面。配置方式见[玻璃材质](/zh_CN/guide/glass#background-sampling)。
+使用背景采样时，`backdrop` 应记录组件后方的不透明内容，不能包含使用该采样的玻璃表面。配置方式见[玻璃表面](/zh_CN/guide/glass#background-sampling)。
 :::
 
 ## 引入
@@ -26,7 +26,7 @@ import top.yukonga.miuix.kmp.glass.glassPopupAnchorValue
 
 ## 基本用法
 
-- 将弹窗放在坐标根处的整页 `Box` 最后，避免父级裁剪。
+- 将弹窗放在整页 `Box` 的最后，避免父级裁剪。行与值范围使用窗口坐标（`boundsInWindow()`）；弹窗会减去自身宿主的窗口偏移。
 - 按需提供系统栏和输入法内边距；返回处理需要 `LocalNavigationEventDispatcherOwner`。
 - 用 `show` 控制显隐，不要用 `if (show)` 包裹调用。
 
@@ -44,7 +44,7 @@ Box(Modifier.fillMaxSize()) {
         modifier = Modifier
             .fillMaxWidth()
             .glassPopupAnchorRow(anchor)
-            .onGloballyPositioned { rowBounds = it.boundsInRoot() }
+            .onGloballyPositioned { rowBounds = it.boundsInWindow() }
             .clickable { show = true }
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -78,7 +78,7 @@ Box(Modifier.fillMaxSize()) {
 | --- | --- | --- | --- | --- |
 | show | Boolean | 面板是否打开；为 false 时立即停止菜单行输入与无障碍操作 | - | 是 |
 | onDismissRequest | () -> Unit | 外部点击或返回请求时调用 | - | 是 |
-| anchorBounds | Rect | 设置行在当前弹窗 Box 坐标系中的范围 | - | 是 |
+| anchorBounds | Rect | 设置行在窗口坐标中的范围（`boundsInWindow()`） | - | 是 |
 | backdrop | Backdrop? | 面板背后的场景；null 使用保留描边与投影的不透明填充 | - | 是 |
 | modifier | Modifier | 作用于面板的修饰符 | Modifier | 否 |
 | anchor | GlassPopupAnchor? | 可选的值对齐与淡出协调锚点；不提供 anchorBounds、backdrop 或外观 | null | 否 |
@@ -96,7 +96,7 @@ Box(Modifier.fillMaxSize()) {
 
 ### 值对齐与自定义外观
 
-使用 `glassPopupAnchorValue` 可让弹窗水平对齐显示值；垂直定位仍使用 `anchorBounds`。省略此修饰符时，水平和垂直定位均使用 `anchorBounds`。`backdrop` 为 null 时使用 `visuals.containerColor`。
+使用 `glassPopupAnchorValue` 可让弹窗在水平和垂直方向都对齐显示值，与 MIUI 下拉偏好一致。省略此修饰符时，水平和垂直定位均使用 `anchorBounds`。`backdrop` 为 null 时使用 `visuals.containerColor`。
 
 ```kotlin
 val sizing = GlassPopupSizing(maxWidth = 320.dp, maxHeight = 480.dp)

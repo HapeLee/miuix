@@ -5,9 +5,6 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
@@ -15,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,20 +30,21 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.BlurEffect
-import androidx.compose.ui.graphics.LayerOutsets
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -57,6 +56,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.navigationevent.NavigationEventInfo
@@ -65,15 +65,16 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.glass.GlassDefaults
-import top.yukonga.miuix.kmp.glass.GlassShadows
 import top.yukonga.miuix.kmp.glass.GlassTopAppBarDefaults
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.glass.Close
 import top.yukonga.miuix.kmp.icon.glass.Search
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassShadows
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
@@ -103,6 +104,8 @@ internal fun GlassSearchOverlay(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     expanded: Boolean = false,
+    label: String = "Search",
+    content: @Composable ColumnScope.(String) -> Unit = {},
 ) {
     val transition = updateTransition(expanded, label = "glassSearch")
     val progress = transition.animateFloat(
@@ -201,7 +204,7 @@ internal fun GlassSearchOverlay(
                         ) {
                             Icon(MiuixIcons.Glass.Search, contentDescription = null, modifier = Modifier.size(28.dp), tint = colors.disabledOnSurface)
                             Box(Modifier.weight(1f)) {
-                                if (query.isEmpty()) Text("Search", color = colors.disabledOnSurface, style = MiuixTheme.textStyles.body1)
+                                if (query.isEmpty()) Text(label, color = colors.disabledOnSurface, style = MiuixTheme.textStyles.body1)
                                 field()
                             }
                             if (query.isNotEmpty()) {
@@ -237,11 +240,12 @@ internal fun GlassSearchOverlay(
                     }
                 }
             }
+            content(query)
         }
     }
 }
 
-/** Share the existing bar fade with its independently rendered progressive-blur background. */
+/** Shared page opacity keeps content and its sampled top-bar background in sync. */
 @Composable
 internal fun rememberGlassSearchBarAlpha(expanded: Boolean): State<Float> {
     val transition = updateTransition(expanded, label = "glassSearchTopBarOpacity")
@@ -257,12 +261,11 @@ internal fun rememberGlassSearchBarAlpha(expanded: Boolean): State<Float> {
 @Composable
 internal fun Modifier.glassSearchBarTransition(expanded: Boolean, barAlpha: () -> Float): Modifier {
     val density = LocalDensity.current
-    val layerOutsets = remember(density) {
+    val layerOutset = remember(density) {
         val shadow = GlassShadows.Regular
         val shadowOutset = ((shadow.radius + maxOf(abs(shadow.offsetX), abs(shadow.offsetY))) / GlassDefaults.SourceDensity).dp
         // Keep a fixed halo for the shadows and maximum blur throughout the offscreen fade.
-        val outset = shadowOutset + with(density) { (SEARCH_TOP_BAR_BLUR_RADIUS * 3f).toDp() }
-        LayerOutsets(left = outset, top = outset, right = outset, bottom = outset)
+        with(density) { shadowOutset.toPx() } + SEARCH_TOP_BAR_BLUR_RADIUS * 3f
     }
     val transition = updateTransition(expanded, label = "glassSearchTopBar")
     val scale = transition.animateFloat(
@@ -273,33 +276,30 @@ internal fun Modifier.glassSearchBarTransition(expanded: Boolean, barAlpha: () -
         transitionSpec = { tween(if (targetState) 150 else 120, easing = LinearEasing) },
         label = "glassSearchTopBarBlur",
     ) { if (it) SEARCH_TOP_BAR_BLUR_RADIUS else 0f }
-    return graphicsLayer {
-        outsets = layerOutsets
-        scaleX = scale.value
-        scaleY = scale.value
-        alpha = barAlpha()
-        renderEffect = if (blur.value > 0.5f) BlurEffect(blur.value, blur.value, TileMode.Decal) else null
+    return drawWithCache {
+        val layer = obtainGraphicsLayer()
+        val halo = ceil(layerOutset).toInt()
+        val layerSize = IntSize(size.width.toInt() + halo * 2, size.height.toInt() + halo * 2)
+        onDrawWithContent {
+            val opacity = barAlpha().coerceIn(0f, 1f)
+            val currentScale = scale.value
+            val currentBlur = blur.value
+            if (opacity > 0f) {
+                if (opacity == 1f && currentScale == 1f && currentBlur == 0f) {
+                    drawContent()
+                } else {
+                    // Keep the halo in the recorded bounds: Skiko can replay nested layers with
+                    // LayerOutsets without applying their opacity or render effect.
+                    layer.record(density = this@drawWithCache, size = layerSize) {
+                        translate(halo.toFloat(), halo.toFloat()) { this@record.drawContent() }
+                    }
+                    layer.alpha = opacity
+                    layer.scaleX = currentScale
+                    layer.scaleY = currentScale
+                    layer.renderEffect = if (currentBlur > 0.5f) BlurEffect(currentBlur, currentBlur, TileMode.Decal) else null
+                    translate(-halo.toFloat(), -halo.toFloat()) { drawLayer(layer) }
+                }
+            }
+        }
     }
-}
-
-/** ActionBarView reveals the title container after exit progress crosses 0.8. */
-@Composable
-internal fun rememberGlassSearchTitleAlpha(expanded: Boolean, collapsed: Boolean): () -> Float {
-    val transition = updateTransition(expanded, label = "glassSearchTitlePhase")
-    val progress = transition.animateFloat(
-        transitionSpec = { tween(400, easing = SearchModeEasing) },
-        label = "glassSearchTitleExitProgress",
-    ) { if (it) 0f else 1f }
-    val reveal by remember(expanded, progress) { derivedStateOf { expanded || progress.value > 0.8f } }
-    val response = if (collapsed) 0.15f else 0.6f
-    val titleAlpha = animateFloatAsState(
-        targetValue = if (reveal) 1f else 0f,
-        animationSpec = if (reveal && !expanded) {
-            spring(dampingRatio = 1f, stiffness = (2 * PI / response).let { (it * it).toFloat() }, visibilityThreshold = 0.001f)
-        } else {
-            snap()
-        },
-        label = "glassSearchTitleAlpha",
-    )
-    return remember(titleAlpha) { { titleAlpha.value } }
 }

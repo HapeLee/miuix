@@ -46,6 +46,15 @@ import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 import top.yukonga.miuix.kmp.icon.basic.Check
 import top.yukonga.miuix.kmp.layout.CascadingPopupDefaults
+import top.yukonga.miuix.kmp.material.EdgeStroke
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterial
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShadow
+import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.material.GlassStyle
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** Default values for [GlassPopup]. */
@@ -60,7 +69,7 @@ object GlassPopupDefaults {
     /** Maximum popup height before content scrolls. */
     val MaxHeight: Dp = 416.dp
 
-    /** Minimum margin from the window edges. */
+    /** Minimum margin from the window's safe area and the popup host edges. */
     val SafeMargin: Dp = 12.dp
 
     /** Vertical content padding. */
@@ -129,7 +138,7 @@ object GlassPopupDefaults {
     fun visuals(
         style: GlassStyle = GlassDefaults.Style,
         alpha: Float = 1f,
-        stroke: GlassStroke? = stroke(),
+        stroke: EdgeStroke? = stroke(),
         shadow: GlassShadow? = GlassShadows.Regular,
         material: GlassMaterial? = material(),
         containerColor: Color = containerColor(),
@@ -147,10 +156,10 @@ object GlassPopupDefaults {
 
     /** Default popup bloom stroke for the current theme. */
     @Composable
-    fun stroke(): GlassStroke = GlassStrokes.forTheme(
+    fun stroke(): EdgeStroke = GlassEdgeStrokes.forTheme(
         isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f,
-        light = GlassStrokes.SmallLight,
-        dark = GlassStrokes.SmallDark,
+        light = GlassEdgeStrokes.SmallLight,
+        dark = GlassEdgeStrokes.SmallDark,
     )
 
     /** Opaque fallback color for the current theme. */
@@ -170,7 +179,7 @@ object GlassPopupDefaults {
  *
  * @param show Whether the popup is open.
  * @param onDismissRequest Called when an outside tap or Back requests dismissal.
- * @param anchorBounds The control's bounds in this composable's coordinate space. Use resting
+ * @param anchorBounds Trigger bounds in window coordinates (`boundsInWindow()`); use resting
  *   bounds when the anchor belongs to a scaled primary menu.
  * @param backdrop Background sampled by the panel. Exclude the popup itself. `null` uses an
  *   opaque fill while retaining the configured bloom stroke and shadow.
@@ -250,8 +259,8 @@ fun BoxScope.GlassPopup(
         contentPadding = contentPadding,
         panelLayer = {},
         overlay = {},
-        frame = { end, page ->
-            val settled = placeGlassPopup(anchorBounds, end, sizing.safeMargin.toPx(), page, layoutDirection)
+        frame = { end, windowBounds ->
+            val settled = placeGlassPopup(anchorBounds, end, sizing.safeMargin.toPx(), windowBounds, layoutDirection)
             directionFrame(settled, end, progress.value, startRadius, cornerRadius, layoutDirection)
         },
         contentLayer = { _, _ ->

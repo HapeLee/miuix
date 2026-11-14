@@ -11,7 +11,7 @@ title: GlassDropdownPopup
 </div>
 
 ::: warning Background Sampling
-When using background sampling, `backdrop` must record opaque content behind the component and exclude the glass surface that samples it. See [Glass Material](/guide/glass#background-sampling) for setup.
+When using background sampling, `backdrop` must record opaque content behind the component and exclude the glass surface that samples it. See [Glass Surfaces](/guide/glass#background-sampling) for setup.
 :::
 
 ## Import
@@ -26,7 +26,7 @@ import top.yukonga.miuix.kmp.glass.glassPopupAnchorValue
 
 ## Basic Usage
 
-- Place the popup last in a full-page `Box` at the coordinate root, outside clipping containers.
+- Place the popup last in a full-page `Box`, outside clipping containers. Row and value bounds use window coordinates (`boundsInWindow()`); the popup subtracts its host's window offset.
 - Provide system/IME padding as needed and a `LocalNavigationEventDispatcherOwner` for Back handling.
 - Control visibility with `show`; do not wrap the call in `if (show)`.
 
@@ -44,7 +44,7 @@ Box(Modifier.fillMaxSize()) {
         modifier = Modifier
             .fillMaxWidth()
             .glassPopupAnchorRow(anchor)
-            .onGloballyPositioned { rowBounds = it.boundsInRoot() }
+            .onGloballyPositioned { rowBounds = it.boundsInWindow() }
             .clickable { show = true }
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -78,7 +78,7 @@ Box(Modifier.fillMaxSize()) {
 | --- | --- | --- | --- | --- |
 | show | Boolean | Whether the panel is open; row input and accessibility actions stop immediately when false | - | Yes |
 | onDismissRequest | () -> Unit | Called for an outside tap or Back request | - | Yes |
-| anchorBounds | Rect | Settings-row bounds in this popup Box's coordinate space | - | Yes |
+| anchorBounds | Rect | Settings-row bounds in window coordinates (`boundsInWindow()`) | - | Yes |
 | backdrop | Backdrop? | Scene behind the panel; null uses opaque fill with stroke and shadow | - | Yes |
 | modifier | Modifier | Modifier applied to the panel | Modifier | No |
 | anchor | GlassPopupAnchor? | Optional value alignment and fade coordination anchor; does not supply anchorBounds, backdrop, or visuals | null | No |
@@ -96,7 +96,7 @@ Sizing and appearance options are documented in [GlassPopup shared defaults](./g
 
 ### Value alignment and custom appearance
 
-Use `glassPopupAnchorValue` for horizontal alignment to the displayed value; vertical placement still uses `anchorBounds`. Without this modifier, both axes use `anchorBounds`. A null `backdrop` uses `visuals.containerColor`.
+Use `glassPopupAnchorValue` to place the popup against the displayed value on both axes, as MIUI's dropdown preference does. Without this modifier, both axes use `anchorBounds`. A null `backdrop` uses `visuals.containerColor`.
 
 ```kotlin
 val sizing = GlassPopupSizing(maxWidth = 320.dp, maxHeight = 480.dp)

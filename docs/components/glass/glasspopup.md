@@ -11,7 +11,7 @@ title: GlassPopup
 </div>
 
 ::: warning Background Sampling
-When using background sampling, `backdrop` must record opaque content behind the component and exclude the glass surface that samples it. See [Glass Material](/guide/glass#background-sampling) for setup.
+When using background sampling, `backdrop` must record opaque content behind the component and exclude the glass surface that samples it. See [Glass Surfaces](/guide/glass#background-sampling) for setup.
 :::
 
 ## Import
@@ -23,11 +23,11 @@ import top.yukonga.miuix.kmp.glass.GlassPopupItem
 
 ## Basic Usage
 
-- Place the popup last in a full-page `Box`, outside clipping containers. Anchor bounds must use that Box's coordinates; convert `boundsInRoot()` for offset hosts.
+- Place the popup last in a full-page `Box`, outside clipping containers. Anchor bounds use window coordinates (`boundsInWindow()`); the popup subtracts its own window offset, so it also works inside inset padding or a rail-offset pane.
 - Provide system/IME padding as needed and a `LocalNavigationEventDispatcherOwner` for Back handling.
 - Control visibility with `show`; do not wrap the call in `if (show)`.
 
-Measure the trigger in the same coordinate root as the popup and update the state from each item:
+Measure the trigger in window coordinates and update the state from each item:
 
 ```kotlin
 var show by remember { mutableStateOf(false) }
@@ -38,7 +38,7 @@ Box(Modifier.fillMaxSize()) {
         text = "Actions",
         onClick = { show = true },
         modifier = Modifier.onGloballyPositioned {
-            anchorBounds = it.boundsInRoot()
+            anchorBounds = it.boundsInWindow()
         },
     )
     GlassPopup(
@@ -76,7 +76,7 @@ GlassPopupItem(
 | --- | --- | --- | --- | --- |
 | show | Boolean | Whether the menu is open; keep the call composed during exit | - | Yes |
 | onDismissRequest | () -> Unit | Called for an outside tap or Back request | - | Yes |
-| anchorBounds | Rect | Trigger bounds in this popup Box's coordinate space | - | Yes |
+| anchorBounds | Rect | Trigger bounds in window coordinates (`boundsInWindow()`) | - | Yes |
 | backdrop | Backdrop? | Scene behind the panel; null uses the opaque fallback | - | Yes |
 | modifier | Modifier | Modifier applied to the panel | Modifier | No |
 | sizing | GlassPopupSizing | Width, height, and safe-margin limits | GlassPopupSizing() | No |
@@ -111,7 +111,7 @@ GlassPopupItem(
 | minWidth | Dp | Narrowest panel width | GlassPopupDefaults.MinWidth | No |
 | maxWidth | Dp | Widest panel width | GlassPopupDefaults.MaxWidth | No |
 | maxHeight | Dp | Maximum panel height before rows scroll | GlassPopupDefaults.MaxHeight | No |
-| safeMargin | Dp | Minimum distance from the page edge | GlassPopupDefaults.SafeMargin | No |
+| safeMargin | Dp | Minimum distance from the window safe area and the popup host edges | GlassPopupDefaults.SafeMargin | No |
 
 
 ### GlassPopupVisuals Properties
@@ -122,7 +122,7 @@ GlassPopupItem(
 | --- | --- | --- | --- | --- |
 | style | GlassStyle | Blur style used when material has no blur radius | - | Yes |
 | alpha | Float | Surface opacity multiplier; GlassTransformPopup also applies it to menu content | - | Yes |
-| stroke | GlassStroke? | Bloom stroke; null removes it | - | Yes |
+| stroke | EdgeStroke? | Edge stroke; null removes it | - | Yes |
 | shadow | GlassShadow? | Panel shadow; null removes it | - | Yes |
 | material | GlassMaterial? | Panel color treatment and optional blur radius; null removes color treatment, not background sampling or blur | - | Yes |
 | containerColor | Color | Opaque fill used when backdrop is null | - | Yes |
@@ -140,7 +140,7 @@ With a non-null backdrop, the popup uses material or style blur. `material = nul
 | `MinWidth` | `Dp` | Narrowest popup width | `200.dp` |
 | `MaxWidth` | `Dp` | Widest popup width | `288.dp` |
 | `MaxHeight` | `Dp` | Height before rows scroll | `416.dp` |
-| `SafeMargin` | `Dp` | Page-edge margin | `12.dp` |
+| `SafeMargin` | `Dp` | Window/host edge margin | `12.dp` |
 | `ContentPaddingVertical` | `Dp` | Vertical panel padding | `8.dp` |
 | `CornerRadius` | `Dp` | Anchored popup radius | `24.dp` |
 | `DropdownCornerRadius` | `Dp` | Dropdown popup radius | `24.dp` |
@@ -161,10 +161,10 @@ With a non-null backdrop, the popup uses material or style blur. `material = nul
 
 | Method Name | Parameters | Return Type | Description |
 | --- | --- | --- | --- |
-| `visuals` | `style: GlassStyle = GlassDefaults.Style`, `alpha: Float = 1f`, `stroke: GlassStroke? = stroke()`, `shadow: GlassShadow? = GlassShadows.Regular`, `material: GlassMaterial? = material()`, `containerColor: Color = containerColor()` | `GlassPopupVisuals` | Creates popup visuals from theme-aware defaults |
+| `visuals` | `style: GlassStyle = GlassDefaults.Style`, `alpha: Float = 1f`, `stroke: EdgeStroke? = stroke()`, `shadow: GlassShadow? = GlassShadows.Regular`, `material: GlassMaterial? = material()`, `containerColor: Color = containerColor()` | `GlassPopupVisuals` | Creates popup visuals from theme-aware defaults |
 | `shape` | `cornerRadius: Dp = CornerRadius` | `GlassShape` | Creates the popup silhouette |
 | `material` | — | `GlassMaterial` | Returns the theme-aware popup material |
-| `stroke` | — | `GlassStroke` | Returns the theme-aware bloom stroke |
+| `stroke` | — | `EdgeStroke` | Returns the theme-aware edge stroke |
 | `containerColor` | — | `Color` | White in light themes; `Color(0xFF2C2C2C)` in dark themes |
 | `itemPressedColor` | — | `Color` | Black at `0.1f` alpha in light themes; white at `0.1f` in dark themes |
 | `maskColor` | — | `Color` | White at `0.4f` alpha in light themes; black at `0.4f` in dark themes |

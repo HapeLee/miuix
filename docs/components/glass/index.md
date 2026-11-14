@@ -22,17 +22,18 @@
 
 ## Setup
 
-See [Glass Material](/guide/glass#setup) for dependencies and background sampling setup. The optional `miuix-glass-icons` module provides icons through `MiuixIcons.Glass`.
+See [Glass Surfaces](/guide/glass#setup) for dependencies and background sampling setup. The optional `miuix-glass-icons` module provides icons through `MiuixIcons.Glass`.
 
 ## Usage Requirements
 
 - Buttons, bars and tabs can be used directly in layouts.
-- Popup menus require a full-page `BoxScope` with anchors in the same coordinate space.
+- Popup menus require a full-page `BoxScope`; anchors are reported in window coordinates and the popup subtracts its host's window offset.
 - `GlassDialog`, `GlassBottomSheet` and `GlassDropdownPreference` require a Miuix [Scaffold](../basic/scaffold).
 
 The sampled backdrop must exclude the glass surface itself. See [Background Sampling](/guide/glass#background-sampling).
 
 ## Related Documentation
 
-- [Glass Material](/guide/glass): material configuration and background sampling.
+- [Material](/guide/material): render primitives, material definitions and the edge stroke.
+- [Glass Surfaces](/guide/glass): surfaces, modifiers and background sampling.
 - [Icon System](/guide/icons): Glass icon imports and weights.

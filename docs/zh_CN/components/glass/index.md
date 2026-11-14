@@ -22,17 +22,18 @@
 
 ## 配置
 
-依赖与背景采样配置见[玻璃材质](/zh_CN/guide/glass#配置)。可选的 `miuix-glass-icons` 模块通过 `MiuixIcons.Glass` 提供图标。
+依赖与背景采样配置见[玻璃表面](/zh_CN/guide/glass#配置)。可选的 `miuix-glass-icons` 模块通过 `MiuixIcons.Glass` 提供图标。
 
 ## 使用要求
 
 - 按钮、顶栏、底栏与标签栏可直接用于页面布局。
-- 弹窗菜单需要整页 `BoxScope`，锚点与弹窗须使用相同坐标系。
+- 弹窗菜单需要整页 `BoxScope`；锚点上报窗口坐标，弹窗会减去自身宿主的窗口偏移。
 - `GlassDialog`、`GlassBottomSheet` 与 `GlassDropdownPreference` 需要 Miuix [Scaffold](../basic/scaffold)。
 
 背景采样不能包含玻璃表面自身，见[背景采样](/zh_CN/guide/glass#background-sampling)。
 
 ## 相关文档
 
-- [玻璃材质](/zh_CN/guide/glass)：材质配置与背景采样。
+- [材质](/zh_CN/guide/material)：渲染原语、材质定义与边缘描边。
+- [玻璃表面](/zh_CN/guide/glass)：表面、修饰符与背景采样。
 - [图标系统](/zh_CN/guide/icons)：Glass 图标的引入与字重。

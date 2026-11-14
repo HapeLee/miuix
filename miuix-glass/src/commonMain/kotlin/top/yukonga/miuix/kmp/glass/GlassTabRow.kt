@@ -47,8 +47,19 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.blur.Backdrop
-import top.yukonga.miuix.kmp.glass.internal.drawGlassRim
-import top.yukonga.miuix.kmp.glass.internal.drawGlassStroke
+import top.yukonga.miuix.kmp.material.EdgeStroke
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassEdgeStrokes
+import top.yukonga.miuix.kmp.material.GlassMaterial
+import top.yukonga.miuix.kmp.material.GlassMaterials
+import top.yukonga.miuix.kmp.material.GlassShadow
+import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.material.GlassStyle
+import top.yukonga.miuix.kmp.material.drawEdgeStroke
+import top.yukonga.miuix.kmp.material.drawGlassRim
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.material.withUnderlayBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
@@ -108,7 +119,7 @@ object GlassTabRowDefaults {
 
     /** Bloom stroke for selected and unselected tabs. */
     @Composable
-    fun stroke(): GlassStroke = GlassStrokes.forTheme(
+    fun stroke(): EdgeStroke = GlassEdgeStrokes.forTheme(
         isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f,
     )
 
@@ -211,7 +222,7 @@ fun GlassTabRow(
     style: GlassStyle = GlassDefaults.Style,
     alpha: Float = 1f,
     surfaceAlpha: Float = 1f,
-    stroke: GlassStroke? = GlassTabRowDefaults.stroke(),
+    stroke: EdgeStroke? = GlassTabRowDefaults.stroke(),
     shadow: GlassShadow? = GlassShadows.Float,
     material: GlassMaterial? = GlassTabRowDefaults.material(),
     height: Dp = GlassTabRowDefaults.Height,
@@ -224,7 +235,7 @@ fun GlassTabRow(
     val shape = GlassTabRowDefaults.shape(height)
     val ramp = surfaceAlpha.coerceIn(0f, 1f)
     val topBarContext = LocalGlassTopAppBarContext.current
-    val resolvedBackdrop = topBarContext?.backdrop ?: backdrop
+    val resolvedBackdrop = (topBarContext?.backdrop ?: backdrop)?.takeIf { isRuntimeShaderSupported() }
     val underlayMaterial = topBarContext?.underlayMaterial
     val resolvedMaterial = material?.withUnderlayBlur(underlayMaterial)
 
@@ -260,14 +271,18 @@ fun GlassTabRow(
 
                 fun containerColor(): Color {
                     val settled = target.value
-                    return if (selected) settled else lerp(colors.restingContainerColor, settled, ramp)
+                    return if (selected) settled else lerp(colors.restingContainerColor, settled, if (resolvedBackdrop != null) ramp else 0f)
                 }
                 // Collapse a visible-range change into a per-tab Boolean so scrolling only
                 // recomposes the tabs whose sampling state actually flips.
                 val samplingOn by remember(samplingEnabled, position) {
                     derivedStateOf { samplingEnabled(position) }
                 }
-                val materialSurface = if (resolvedBackdrop != null && underlayMaterial != null) {
+                val materialSurface = if (resolvedBackdrop == null) {
+                    Modifier
+                        .glassShadow(shape, shadow, alpha)
+                        .clip(shape)
+                } else if (underlayMaterial != null) {
                     Modifier
                         .glassShadow(shape, shadow, alpha * ramp)
                         .glassOnActionBar(
@@ -306,9 +321,9 @@ fun GlassTabRow(
                             val restingRim = alpha * (1f - ramp) * rim.value
                             if (restingRim > 0.001f) {
                                 if (stroke != null) {
-                                    drawGlassStroke(shape, layoutDirection, stroke, restingRim)
+                                    drawEdgeStroke(shape, stroke, restingRim)
                                 }
-                                drawGlassRim(shape, layoutDirection, style, containerColor(), restingRim)
+                                drawGlassRim(shape, style, containerColor(), restingRim)
                             }
                         }
                         .selectable(
@@ -368,7 +383,7 @@ object GlassSegmentedTabRowDefaults {
 
     /** Bloom stroke for the track. */
     @Composable
-    fun stroke(): GlassStroke = GlassStrokes.forTheme(
+    fun stroke(): EdgeStroke = GlassEdgeStrokes.forTheme(
         isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f,
     )
 
@@ -433,7 +448,7 @@ fun GlassSegmentedTabRow(
     style: GlassStyle = GlassDefaults.Style,
     alpha: Float = 1f,
     surfaceAlpha: Float = 1f,
-    stroke: GlassStroke? = GlassSegmentedTabRowDefaults.stroke(),
+    stroke: EdgeStroke? = GlassSegmentedTabRowDefaults.stroke(),
     shadow: GlassShadow? = GlassShadows.Float,
     material: GlassMaterial? = GlassSegmentedTabRowDefaults.material(),
     height: Dp = GlassSegmentedTabRowDefaults.Height,
@@ -444,9 +459,10 @@ fun GlassSegmentedTabRow(
 ) {
     if (tabs.isEmpty()) return
     val index = selectedIndex.coerceIn(0, tabs.lastIndex)
-    val ramp = surfaceAlpha.coerceIn(0f, 1f)
+    val runtimeShaderSupported = isRuntimeShaderSupported()
+    val ramp = if (runtimeShaderSupported) surfaceAlpha.coerceIn(0f, 1f) else 0f
     val topBarContext = LocalGlassTopAppBarContext.current
-    val resolvedBackdrop = topBarContext?.backdrop ?: backdrop
+    val resolvedBackdrop = (topBarContext?.backdrop ?: backdrop).takeIf { runtimeShaderSupported }
     val underlayMaterial = topBarContext?.underlayMaterial
     val resolvedMaterial = material?.withUnderlayBlur(underlayMaterial)
     val trackShape = GlassSegmentedTabRowDefaults.shape(height)
@@ -472,7 +488,9 @@ fun GlassSegmentedTabRow(
         launch { span.animateTo(slot, GlassMotion.default()) }
     }
 
-    val materialSurface = if (underlayMaterial != null) {
+    val materialSurface = if (resolvedBackdrop == null) {
+        Modifier
+    } else if (underlayMaterial != null) {
         Modifier.glassOnActionBar(
             backdrop = resolvedBackdrop,
             shape = trackShape,
@@ -499,7 +517,11 @@ fun GlassSegmentedTabRow(
     Box(
         modifier = modifier
             .height(height)
-            .glassShadow(trackShape, shadow, alpha * ramp)
+            .glassShadow(
+                trackShape,
+                shadow,
+                alpha * if (runtimeShaderSupported) ramp else 1f,
+            )
             .clip(trackShape)
             .then(materialSurface)
             .background(trackColor.copy(alpha = trackColor.alpha * (1f - ramp)))

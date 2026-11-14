@@ -90,29 +90,31 @@ import top.yukonga.miuix.kmp.basic.NavigationRail
 import top.yukonga.miuix.kmp.basic.NavigationRailItem
 import top.yukonga.miuix.kmp.basic.NavigationRailValue
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.basic.SnackbarHost
-import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.ToolbarPosition
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Create
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Edit
-import top.yukonga.miuix.kmp.icon.extended.Home
-import top.yukonga.miuix.kmp.icon.extended.Image
 import top.yukonga.miuix.kmp.icon.extended.Link
 import top.yukonga.miuix.kmp.icon.extended.More
-import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.glass.EditSubtitle
+import top.yukonga.miuix.kmp.icon.glass.HomeOutline
+import top.yukonga.miuix.kmp.icon.glass.ImageOutline
+import top.yukonga.miuix.kmp.icon.glass.SettingsOutline
+import top.yukonga.miuix.kmp.icon.glass.Theme
+import top.yukonga.miuix.kmp.material.EdgeStroke
+import top.yukonga.miuix.kmp.material.EdgeStrokes
+import top.yukonga.miuix.kmp.material.edgeStroke
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.nav.core.NavBackStack
 import top.yukonga.miuix.kmp.nav.core.NavCornerClipMode
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
@@ -180,11 +182,11 @@ fun AppContent(
 
     val navigationItems = remember {
         listOf(
-            NavigationItem(UIConstants.PAGE_TITLES[0], MiuixIcons.Home),
-            NavigationItem(UIConstants.PAGE_TITLES[1], MiuixIcons.Create),
-            NavigationItem(UIConstants.PAGE_TITLES[2], MiuixIcons.Image),
-            NavigationItem(UIConstants.PAGE_TITLES[3], MiuixIcons.Edit),
-            NavigationItem(UIConstants.PAGE_TITLES[4], MiuixIcons.Settings),
+            NavigationItem(UIConstants.PAGE_TITLES[0], MiuixIcons.Glass.HomeOutline),
+            NavigationItem(UIConstants.PAGE_TITLES[1], MiuixIcons.Glass.ImageOutline),
+            NavigationItem(UIConstants.PAGE_TITLES[2], MiuixIcons.Glass.Theme),
+            NavigationItem(UIConstants.PAGE_TITLES[3], MiuixIcons.Glass.EditSubtitle),
+            NavigationItem(UIConstants.PAGE_TITLES[4], MiuixIcons.Glass.SettingsOutline),
         )
     }
 
@@ -333,6 +335,9 @@ private fun AppNavHost(
                 mainPagerState = mainPagerState,
             )
         }
+        entry<Route.Component>(swipeDismiss = swipeBackDirection) { route ->
+            ComponentPage(demo = route.demo, padding = padding)
+        }
         entry<Route.PullToRefresh>(swipeDismiss = swipeBackDirection) {
             PullToRefreshPage(padding = padding)
         }
@@ -409,24 +414,16 @@ private fun Home(
 ) {
     val isWideScreen = LocalIsWideScreen.current
     val layoutDirection = LocalLayoutDirection.current
-    val snackbarHostState = remember { SnackbarHostState() }
-    val pagerContent = remember(snackbarHostState, mainPagerState.pagerState) {
+    val pagerContent = remember(mainPagerState.pagerState) {
         movableContentOf<PaddingValues, Modifier> { pagerPadding, pagerModifier ->
             AppPager(
-                snackbarHostState = snackbarHostState,
                 padding = pagerPadding,
                 pagerState = mainPagerState.pagerState,
                 modifier = pagerModifier,
             )
         }
     }
-    Scaffold(
-        snackbarHost = {
-            if (isWideScreen) {
-                SnackbarHost(state = snackbarHostState)
-            }
-        },
-    ) {
+    Scaffold {
         if (isWideScreen) {
             WideScreenContent(
                 layoutDirection = layoutDirection,
@@ -435,7 +432,6 @@ private fun Home(
         } else {
             CompactScreenLayout(
                 navigationItems = navigationItems,
-                snackbarHostState = snackbarHostState,
                 padding = padding,
                 mainPagerState = mainPagerState,
                 pagerContent = pagerContent,
@@ -487,7 +483,6 @@ private fun WideScreenContent(
 @Composable
 private fun CompactScreenLayout(
     navigationItems: List<NavigationItem>,
-    snackbarHostState: SnackbarHostState,
     padding: PaddingValues,
     mainPagerState: MainPagerState,
     pagerContent: @Composable (PaddingValues, Modifier) -> Unit,
@@ -519,9 +514,6 @@ private fun CompactScreenLayout(
             )
         },
         floatingToolbarPosition = appState.floatingToolbarPosition.toToolbarPosition(),
-        snackbarHost = {
-            SnackbarHost(state = snackbarHostState)
-        },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().layerBackdrop(backdrop)) {
             pagerContent(
@@ -546,7 +538,7 @@ private fun NavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val appState = LocalAppState.current
-    val blurActive = appState.enableBlur && backdrop != null
+    val blurActive = appState.enableBlur && backdrop != null && isRuntimeShaderSupported()
     val barColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surface
     val page = mainPagerState.selectedPage
 
@@ -607,8 +599,8 @@ private fun NavigationBar(
             val floatingBarColor = if (blurActive) Color.Transparent else MiuixTheme.colorScheme.surfaceContainer
             val floatingBarShape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
             val isDark = isInDarkTheme()
-            val floatingHighlight = remember(isDark) {
-                if (isDark) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
+            val floatingStroke: EdgeStroke = remember(isDark) {
+                if (isDark) EdgeStrokes.MiddleDark else EdgeStrokes.MiddleLight
             }
             Box(modifier = modifier) {
                 when (appState.floatingNavigationBarStyle) {
@@ -632,7 +624,7 @@ private fun NavigationBar(
                             items = navigationItems,
                             selectedIndex = page,
                             onItemClick = { mainPagerState.animateToPage(it) },
-                            backdrop = backdrop,
+                            backdrop = if (blurActive) backdrop else null,
                             isBlurActive = blurActive,
                             badge = { navigationItemBadge(it, appState.showNavigationBarBadge) },
                         )
@@ -641,17 +633,21 @@ private fun NavigationBar(
                     else -> {
                         FloatingNavigationBar(
                             modifier = if (blurActive) {
-                                Modifier.textureBlur(
-                                    backdrop = backdrop,
-                                    shape = floatingBarShape,
-                                    blurRadius = 25f,
-                                    colors = BlurDefaults.blurColors(
-                                        blendColors = listOf(
-                                            BlendColorEntry(color = MiuixTheme.colorScheme.surfaceContainer.copy(0.6f)),
+                                Modifier
+                                    .textureBlur(
+                                        backdrop = backdrop,
+                                        shape = floatingBarShape,
+                                        blurRadius = 25f,
+                                        colors = BlurDefaults.blurColors(
+                                            blendColors = listOf(
+                                                BlendColorEntry(color = MiuixTheme.colorScheme.surfaceContainer.copy(0.6f)),
+                                            ),
                                         ),
-                                    ),
-                                    highlight = floatingHighlight,
-                                )
+                                    )
+                                    .edgeStroke(
+                                        shape = floatingBarShape,
+                                        stroke = floatingStroke,
+                                    )
                             } else {
                                 Modifier
                             },
@@ -790,7 +786,6 @@ private fun navigationItemBadge(index: Int, show: Boolean): (@Composable () -> U
 
 @Composable
 fun AppPager(
-    snackbarHostState: SnackbarHostState,
     padding: PaddingValues,
     pagerState: PagerState,
     modifier: Modifier = Modifier,
@@ -820,9 +815,10 @@ fun AppPager(
         },
         verticalAlignment = Alignment.Top,
         flingBehavior = flingBehavior,
+        beyondViewportPageCount = 4,
         pageContent = { page ->
             when (page) {
-                UIConstants.MAIN_PAGE_INDEX -> MainPage(snackbarHostState = snackbarHostState, padding = padding)
+                UIConstants.MAIN_PAGE_INDEX -> MainPage(padding = padding)
                 UIConstants.ICON_PAGE_INDEX -> IconsPage(padding = padding)
                 UIConstants.COLOR_PAGE_INDEX -> ColorPage(padding = padding)
                 UIConstants.TEXT_STYLE_PAGE_INDEX -> TextStylePage(padding = padding)

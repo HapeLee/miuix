@@ -22,7 +22,7 @@ popupHost: MiuixPopupHost
 :::
 
 ::: warning 背景采样
-使用背景采样时，`backdrop` 应记录组件后方的不透明内容，不能包含使用该采样的玻璃表面。配置方式见[玻璃材质](/zh_CN/guide/glass#background-sampling)。
+使用背景采样时，`backdrop` 应记录组件后方的不透明内容，不能包含使用该采样的玻璃表面。配置方式见[玻璃表面](/zh_CN/guide/glass#background-sampling)。
 :::
 
 ## 引入
@@ -73,7 +73,7 @@ Scaffold { padding ->
 
 关闭时仍须保留组件调用，直到离场动画完成。不要使用 `if (show)` 包裹调用。
 
-浮层可能覆盖页面栏时，应将这些栏包含在 `backdrop` 中，但排除弹窗宿主及遮罩。backdrop 为 null 或运行时着色器不可用时使用 `containerColor`，应提供不透明回退色。
+浮层可能覆盖页面栏时，应将这些栏包含在 `backdrop` 中，但排除弹窗宿主及遮罩。backdrop 为 null 时使用 `containerColor`，应提供不透明填充色。
 
 内容滚动与额外间距由调用方提供。若底部留白应随内容滚动，应将导航栏内边距放在可滚动内容内部。
 
@@ -101,7 +101,7 @@ Scaffold { padding ->
 | insideMargin | DpSize | `width` 用作水平内容内边距，`height` 用作底部内边距 | BottomSheetDefaults.insideMargin | 否 |
 | dragHandleColor | Color | 应用按压透明度之前的拖动手柄颜色 | BottomSheetDefaults.dragHandleColor() | 否 |
 | material | GlassMaterial | 模糊及有序颜色层 | GlassBottomSheetDefaults.material() | 否 |
-| stroke | GlassStroke? | 辉光描边；null 移除描边 | GlassBottomSheetDefaults.stroke() | 否 |
+| stroke | EdgeStroke? | 辉光描边；null 移除描边 | GlassBottomSheetDefaults.stroke() | 否 |
 | containerColor | Color | 不透明回退填充色 | GlassBottomSheetDefaults.containerColor() | 否 |
 | dimColor | Color | 应用动画进度之前的遮罩颜色 | GlassBottomSheetDefaults.ScrimColor | 否 |
 | onDismissFinished | (() -> Unit)? | 隐藏动画完成后调用；隐藏被取消时不调用 | null | 否 |
@@ -115,7 +115,7 @@ Scaffold { padding ->
 | --- | --- | --- | --- | --- |
 | backdrop | Backdrop? | 排除抽屉宿主和遮罩的页面背景采样；null 使用回退 | - | 是 |
 | material | GlassMaterial | 模糊及有序颜色层 | GlassBottomSheetDefaults.material() | 否 |
-| stroke | GlassStroke? | 辉光描边；null 移除描边 | GlassBottomSheetDefaults.stroke() | 否 |
+| stroke | EdgeStroke? | 辉光描边；null 移除描边 | GlassBottomSheetDefaults.stroke() | 否 |
 | containerColor | Color | 不透明回退填充色 | GlassBottomSheetDefaults.containerColor() | 否 |
 
 ### GlassBottomSheetDefaults 对象
@@ -131,7 +131,7 @@ Scaffold { padding ->
 | 方法名 | 返回类型 | 说明 |
 | --- | --- | --- |
 | material() | GlassMaterial | 随主题变化的 `GlassMaterials.dialogGlass`，与 GlassDialog 共用 |
-| stroke() | GlassStroke | 随主题选择 `GlassStrokes.MiddleLight` 或 `MiddleDark` 辉光描边 |
+| stroke() | EdgeStroke | 随主题选择 `GlassEdgeStrokes.MiddleLight` 或 `MiddleDark` 辉光描边 |
 | containerColor() | Color | 用于不透明回退的主题背景色 |
 
 ## 进阶用法

@@ -11,7 +11,7 @@ title: GlassTransformPopup
 </div>
 
 ::: warning Background Sampling
-When using background sampling, `backdrop` must record opaque content behind the component and exclude the glass surface that samples it. See [Glass Material](/guide/glass#background-sampling) for setup.
+When using background sampling, `backdrop` must record opaque content behind the component and exclude the glass surface that samples it. See [Glass Surfaces](/guide/glass#background-sampling) for setup.
 :::
 
 ## Import
@@ -27,9 +27,9 @@ import top.yukonga.miuix.kmp.glass.glassPopupAnchorContent
 
 ## Basic Usage
 
-This `BoxScope` extension does not require `MiuixPopupHost`. Place it last in a full-page `Box`, outside clipping containers; it handles outside taps. Anchor coordinates must use the popup `Box`'s coordinate space.
+This `BoxScope` extension does not require `MiuixPopupHost`. Place it last in a full-page `Box`, outside clipping containers; it handles outside taps. Anchors and placement use window coordinates, and the popup subtracts its host's window offset, so it stays aligned inside inset padding or a rail-offset pane.
 
-Anchor modifiers report root bounds, so the popup Box must start at the root origin; do not place it inside inset padding or an offset area. System-bar and IME insets are not applied automatically; `safeMargin` is relative to this Box. Back handling requires `LocalNavigationEventDispatcherOwner`, while outside taps work without it.
+Anchor modifiers report window bounds. System-bar and IME insets are not applied automatically; `safeMargin` is measured from the window safe area (display cutout and system bars) and the popup host's edges. Back handling requires `LocalNavigationEventDispatcherOwner`, while outside taps work without it.
 
 Keep the call in composition until exit animation completes; do not wrap it in `if (show)`.
 

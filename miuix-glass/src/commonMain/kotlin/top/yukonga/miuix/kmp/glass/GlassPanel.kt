@@ -8,7 +8,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import top.yukonga.miuix.kmp.blur.Backdrop
-import top.yukonga.miuix.kmp.glass.internal.drawGlassStroke
+import top.yukonga.miuix.kmp.material.EdgeStroke
+import top.yukonga.miuix.kmp.material.GlassDefaults
+import top.yukonga.miuix.kmp.material.GlassMaterial
+import top.yukonga.miuix.kmp.material.GlassShadow
+import top.yukonga.miuix.kmp.material.GlassShadows
+import top.yukonga.miuix.kmp.material.GlassShape
+import top.yukonga.miuix.kmp.material.GlassStyle
+import top.yukonga.miuix.kmp.material.drawEdgeStroke
+import top.yukonga.miuix.kmp.material.isRuntimeShaderSupported
 
 /**
  * Applies a glass surface and shadow over [backdrop].
@@ -23,8 +31,7 @@ import top.yukonga.miuix.kmp.glass.internal.drawGlassStroke
  * @param stroke Optional bloom stroke along the silhouette.
  * @param shadow Shadow configuration. `null` disables the shadow.
  * @param shading Whether to refract and shade the backdrop. Use `false` for bars and menus.
- * @param fallback Surface modifier used without a backdrop. The default clips to [shape] and
- *   leaves subsequent caller content as the body.
+ * @param fallback Surface used without a backdrop; `null` clips to [shape].
  */
 fun Modifier.glassPanel(
     backdrop: Backdrop?,
@@ -32,18 +39,18 @@ fun Modifier.glassPanel(
     style: GlassStyle = GlassDefaults.Style,
     alpha: Float = 1f,
     material: GlassMaterial? = null,
-    stroke: GlassStroke? = null,
+    stroke: EdgeStroke? = null,
     shadow: GlassShadow? = GlassShadows.Regular,
     shading: Boolean = true,
-    fallback: Modifier = Modifier.clip(shape),
-): Modifier = if (backdrop == null) {
+    fallback: Modifier? = null,
+): Modifier = if (backdrop == null || !isRuntimeShaderSupported()) {
     this
         .graphicsLayer { this.alpha = alpha }
         .glassShadow(shape, shadow)
-        .then(fallback)
+        .then(fallback ?: Modifier.clip(shape))
         .drawWithContent {
             drawContent()
-            stroke?.let { drawGlassStroke(shape, layoutDirection, it, 1f) }
+            stroke?.let { drawEdgeStroke(shape, it, 1f) }
         }
 } else {
     this

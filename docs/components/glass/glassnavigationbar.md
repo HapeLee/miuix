@@ -7,7 +7,7 @@
 </div>
 
 ::: warning Background Sampling
-Record an opaque background without the glass surface itself. See [Glass Material](/guide/glass#background-sampling).
+Record an opaque background without the glass surface itself. See [Glass Surfaces](/guide/glass#background-sampling).
 :::
 
 ## Import
@@ -40,7 +40,7 @@ GlassNavigationBar(
 )
 ```
 
-Destinations share the available width. Labels allow two lines. Selection updates on press and drag; provide `contentDescription` for icon-only items.
+Destinations share the available width. Labels allow two lines. Pressing and dragging only preview the indicator; `onSelect` fires once with the final destination on release. The indicator settles to the `selectedIndex` committed by the caller, including after an external selection change. Cancellation restores the current selection without a callback. Keyboard and accessibility activation still select immediately. Provide `contentDescription` for icon-only items.
 
 ## Component States
 
@@ -74,7 +74,7 @@ Use `visible` to show or hide the group. `alpha` controls material opacity.
 | shape | GlassShape | Capsule shape | GlassShape(CornerSize(50), CornerSize(50), CornerSize(50), CornerSize(50)) | No |
 | alpha | Float | Capsule material opacity multiplier | 1f | No |
 | visible | Boolean | Target visibility of the whole group | true | No |
-| stroke | GlassStroke? | Capsule stroke; null removes it | GlassNavigationBarDefaults.stroke() | No |
+| stroke | EdgeStroke? | Capsule stroke; null removes it | GlassNavigationBarDefaults.stroke() | No |
 | shadow | GlassShadow? | Capsule shadow; null removes it | GlassShadows.Float | No |
 | height | Dp | Minimum capsule height | GlassNavigationBarDefaults.Height | No |
 | material | GlassMaterial? | Capsule body; null omits explicit material layers | GlassNavigationBarDefaults.material() | No |
@@ -82,7 +82,7 @@ Use `visible` to show or hide the group. `alpha` controls material opacity.
 | indicatorPressedColor | Color | Pressed indicator fill | GlassNavigationBarDefaults.indicatorPressedColor() | No |
 | selectedColor | Color | Selected icon and label tint | MiuixTheme.colorScheme.onBackground | No |
 | unselectedColor | Color | Unselected icon and label tint | MiuixTheme.colorScheme.onBackground | No |
-| trailingAction | (@Composable () -> Unit)? | Independent action outside the capsule | null | No |
+| trailingAction | (@Composable () -> Unit)? | Independent action outside the capsule; adding or removing it animates scale, opacity, capsule width and spacing | null | No |
 
 ### GlassNavigationItem Properties {#glassnavigationitem}
 
@@ -100,7 +100,7 @@ Use `visible` to show or hide the group. `alpha` controls material opacity.
 | --- | --- | --- | --- |
 | Height | Dp | Minimum capsule height | 54.dp |
 | ActionSpacing | Dp | Capsule-to-action gap | 12.dp |
-| IconSize | Dp | Destination icon size | 28.dp |
+| IconSize | Dp | Destination icon size | 25.dp |
 | LabelSize | Dp | Caption size converted to sp using current density | 11.dp |
 | LargeLabelSize | Dp | Caption size when font scale is at least 1.6 | 16.dp |
 | ContentPaddingVertical | Dp | Vertical padding around icon and caption | 6.dp |
@@ -115,7 +115,7 @@ Use `visible` to show or hide the group. `alpha` controls material opacity.
 | Method Name | Return Type | Description |
 | --- | --- | --- |
 | material() | GlassMaterial | Theme-selected `GlassMaterials.puredThinGlass` |
-| stroke() | GlassStroke | `GlassStrokes.MiddleLight` in light mode; `MiddleDark` in dark mode |
+| stroke() | EdgeStroke | `GlassEdgeStrokes.MiddleLight` in light mode; `MiddleDark` in dark mode |
 | indicatorColor() | Color | Black at 0.06 alpha in light mode; white at 0.12 alpha in dark mode |
 | indicatorPressedColor() | Color | Black at 0.16 alpha in light mode; white at 0.26 alpha in dark mode |
 

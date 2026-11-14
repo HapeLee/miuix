@@ -7,7 +7,7 @@
 </div>
 
 ::: warning 背景采样
-采样区域应包含不透明背景，并排除玻璃表面自身。见[玻璃材质](/zh_CN/guide/glass#background-sampling)。
+采样区域应包含不透明背景，并排除玻璃表面自身。见[玻璃表面](/zh_CN/guide/glass#background-sampling)。
 :::
 
 ## 引入
@@ -40,7 +40,7 @@ GlassNavigationBar(
 )
 ```
 
-各导航项等宽排列，标签最多两行。按下和拖动时更新选中项；纯图标项目应提供 `contentDescription`。
+各导航项等宽排列，标签最多两行。按下和拖动时只预览指示器位置，松手后才通过 `onSelect` 提交一次最终目的地。指示器会跟随调用方已提交的 `selectedIndex` 归位，外部选中项变化也会更新。取消手势恢复当前选择，不触发回调。键盘和无障碍激活仍立即选中。纯图标项目应提供 `contentDescription`。
 
 ## 组件状态
 
@@ -74,7 +74,7 @@ GlassNavigationBar(
 | shape | GlassShape | 胶囊形状 | GlassShape(CornerSize(50), CornerSize(50), CornerSize(50), CornerSize(50)) | 否 |
 | alpha | Float | 胶囊材质透明度乘数 | 1f | 否 |
 | visible | Boolean | 整个组合的目标可见状态 | true | 否 |
-| stroke | GlassStroke? | 胶囊描边，null 表示不绘制 | GlassNavigationBarDefaults.stroke() | 否 |
+| stroke | EdgeStroke? | 胶囊描边，null 表示不绘制 | GlassNavigationBarDefaults.stroke() | 否 |
 | shadow | GlassShadow? | 胶囊阴影，null 表示不绘制 | GlassShadows.Float | 否 |
 | height | Dp | 胶囊最小高度 | GlassNavigationBarDefaults.Height | 否 |
 | material | GlassMaterial? | 胶囊主体，null 表示不使用显式材质色层 | GlassNavigationBarDefaults.material() | 否 |
@@ -82,7 +82,7 @@ GlassNavigationBar(
 | indicatorPressedColor | Color | 按下时的指示器填充色 | GlassNavigationBarDefaults.indicatorPressedColor() | 否 |
 | selectedColor | Color | 选中图标和标签颜色 | MiuixTheme.colorScheme.onBackground | 否 |
 | unselectedColor | Color | 未选中图标和标签颜色 | MiuixTheme.colorScheme.onBackground | 否 |
-| trailingAction | (@Composable () -> Unit)? | 胶囊外部的独立操作 | null | 否 |
+| trailingAction | (@Composable () -> Unit)? | 胶囊外的独立操作；添加或移除时平滑调整缩放、透明度、胶囊宽度和间距 | null | 否 |
 
 ### GlassNavigationItem 属性 {#glassnavigationitem}
 
@@ -100,7 +100,7 @@ GlassNavigationBar(
 | --- | --- | --- | --- |
 | Height | Dp | 胶囊最小高度 | 54.dp |
 | ActionSpacing | Dp | 胶囊与尾部操作之间的间距 | 12.dp |
-| IconSize | Dp | 目的地图标尺寸 | 28.dp |
+| IconSize | Dp | 目的地图标尺寸 | 25.dp |
 | LabelSize | Dp | 按当前密度转换为 sp 的标签字号 | 11.dp |
 | LargeLabelSize | Dp | 字体缩放至少为 1.6 时的标签字号 | 16.dp |
 | ContentPaddingVertical | Dp | 图标与标签组合的垂直内边距 | 6.dp |
@@ -115,7 +115,7 @@ GlassNavigationBar(
 | 方法名 | 返回类型 | 说明 |
 | --- | --- | --- |
 | material() | GlassMaterial | 随主题选择的 `GlassMaterials.puredThinGlass` |
-| stroke() | GlassStroke | 浅色模式为 `GlassStrokes.MiddleLight`，深色模式为 `MiddleDark` |
+| stroke() | EdgeStroke | 浅色模式为 `GlassEdgeStrokes.MiddleLight`，深色模式为 `MiddleDark` |
 | indicatorColor() | Color | 浅色模式为透明度 0.06 的黑色，深色模式为透明度 0.12 的白色 |
 | indicatorPressedColor() | Color | 浅色模式为透明度 0.16 的黑色，深色模式为透明度 0.26 的白色 |
 
