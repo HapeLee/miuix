@@ -44,6 +44,7 @@ import utils.pageScrollModifiers
 import utils.rememberBlurBackdrop
 
 private val NavigationBarDisplayModeOptions = listOf("IconAndText", "IconOnly", "IconWithSelectedLabel")
+private val SidebarStyleOptions = listOf("Original", "Glass")
 private val FloatingNavigationBarStyleOptions = listOf("Original", "Glass", "iOS-like")
 private val FloatingNavigationBarPositionOptions = listOf("Center", "Start", "End")
 private val FloatingToolbarPositionOptions =
@@ -84,10 +85,7 @@ fun SettingsPage(
         },
     ) { innerPadding ->
         SettingsContent(
-            padding = PaddingValues(
-                top = innerPadding.calculateTopPadding(),
-                bottom = padding.calculateBottomPadding(),
-            ),
+            contentPadding = pageContentPadding(innerPadding, padding),
             topAppBarScrollBehavior = topAppBarScrollBehavior,
             backdrop = backdrop,
         )
@@ -96,7 +94,7 @@ fun SettingsPage(
 
 @Composable
 private fun SettingsContent(
-    padding: PaddingValues,
+    contentPadding: PaddingValues,
     topAppBarScrollBehavior: ScrollBehavior,
     backdrop: LayerBackdrop?,
 ) {
@@ -106,7 +104,6 @@ private fun SettingsContent(
     val navigator = LocalNavigator.current
     val lazyListState = rememberLazyListState()
 
-    val contentPadding = pageContentPadding(padding, padding, isWideScreen)
     Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
         LazyColumn(
             state = lazyListState,
@@ -213,28 +210,29 @@ private fun SettingsContent(
                         onCheckedChange = { updateAppState { state -> state.copy(showTopAppBar = it) } },
                     )
                     AnimatedVisibility(visible = appState.showTopAppBar) {
-                        Column {
-                            GlassDropdownPreference(
-                                backdrop = backdrop,
-                                title = "TopAppBar Style",
-                                items = TopAppBarStyleOptions,
-                                selectedIndex = appState.topAppBarStyle,
-                                onSelectedIndexChange = { updateAppState { state -> state.copy(topAppBarStyle = it) } },
-                            )
-                            AnimatedVisibility(visible = appState.topAppBarStyle == 1 && isRuntimeShaderSupported()) {
-                                SwitchPreference(
-                                    title = "Glass Top Bar Progressive Blur",
-                                    checked = appState.glassTopBarProgressiveBlur,
-                                    onCheckedChange = { updateAppState { state -> state.copy(glassTopBarProgressiveBlur = it) } },
-                                )
-                            }
-                        }
+                        GlassDropdownPreference(
+                            backdrop = backdrop,
+                            title = "TopAppBar Style",
+                            items = TopAppBarStyleOptions,
+                            selectedIndex = appState.topAppBarStyle,
+                            onSelectedIndexChange = { updateAppState { state -> state.copy(topAppBarStyle = it) } },
+                        )
                     }
                     SwitchPreference(
                         title = if (isWideScreen) "Show NavigationRail" else "Show NavigationBar",
                         checked = appState.showNavigationBar,
                         onCheckedChange = { updateAppState { state -> state.copy(showNavigationBar = it) } },
                     )
+                    // Sidebar options only exist on the layout that actually shows a sidebar.
+                    AnimatedVisibility(visible = appState.showNavigationBar && isWideScreen) {
+                        GlassDropdownPreference(
+                            backdrop = backdrop,
+                            title = "Sidebar Style",
+                            items = SidebarStyleOptions,
+                            selectedIndex = appState.navigationRailStyle,
+                            onSelectedIndexChange = { updateAppState { state -> state.copy(navigationRailStyle = it) } },
+                        )
+                    }
                     AnimatedVisibility(visible = appState.showNavigationBar) {
                         SwitchPreference(
                             title = "Show Navigation Badge",
@@ -303,6 +301,13 @@ private fun SettingsContent(
                                 selectedIndex = appState.floatingToolbarOrientation,
                                 onSelectedIndexChange = { updateAppState { state -> state.copy(floatingToolbarOrientation = it) } },
                             )
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
+                                title = "FloatingToolbar Style",
+                                items = TopAppBarStyleOptions,
+                                selectedIndex = appState.floatingToolbarStyle,
+                                onSelectedIndexChange = { updateAppState { state -> state.copy(floatingToolbarStyle = it) } },
+                            )
                         }
                     }
                     SwitchPreference(
@@ -311,13 +316,22 @@ private fun SettingsContent(
                         onCheckedChange = { updateAppState { state -> state.copy(showFloatingActionButton = it) } },
                     )
                     AnimatedVisibility(visible = appState.showFloatingActionButton) {
-                        GlassDropdownPreference(
-                            backdrop = backdrop,
-                            title = "FloatingActionButton Position",
-                            items = FabPositionOptions,
-                            selectedIndex = appState.floatingActionButtonPosition,
-                            onSelectedIndexChange = { updateAppState { state -> state.copy(floatingActionButtonPosition = it) } },
-                        )
+                        Column {
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
+                                title = "FloatingActionButton Position",
+                                items = FabPositionOptions,
+                                selectedIndex = appState.floatingActionButtonPosition,
+                                onSelectedIndexChange = { updateAppState { state -> state.copy(floatingActionButtonPosition = it) } },
+                            )
+                            GlassDropdownPreference(
+                                backdrop = backdrop,
+                                title = "FloatingActionButton Style",
+                                items = TopAppBarStyleOptions,
+                                selectedIndex = appState.floatingActionButtonStyle,
+                                onSelectedIndexChange = { updateAppState { state -> state.copy(floatingActionButtonStyle = it) } },
+                            )
+                        }
                     }
                 }
             }

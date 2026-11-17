@@ -6,7 +6,9 @@ package top.yukonga.miuix.kmp.glass
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
@@ -21,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -44,9 +47,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
-import top.yukonga.miuix.kmp.basic.BlurTopAppBar
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.basic.TopAppBarLayout
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
@@ -80,8 +83,8 @@ object GlassTopAppBarDefaults {
 /** Scroll distance for the retained shadow ramp. Material transitions use their own timing. */
     val RampDistance: Dp = 32.dp
 
-    /** How far the large title blurs out as it collapses. */
-    val LargeTitleBlurRadius: Dp = 12.dp
+    /** Maximum blur radius applied to titles during collapse/expand transitions. */
+    val TitleBlurRadius: Dp = 8.dp
 
     /** Diameter of the glass pill behind a bar button. */
     val ButtonSize: Dp = 44.dp
@@ -152,24 +155,18 @@ object GlassTopAppBarDefaults {
     fun bandBrush(color: Color): Brush = TopAppBarBandBrush(color)
 
     /** How far the band reaches past the bottom of the bar. */
-    val BandOverhang: Dp = 28.dp
+    val BandOverhang: Dp = 36.dp
 
     @Composable
     private fun isDarkTheme(): Boolean = MiuixTheme.colorScheme.background.luminance() < 0.5f
 }
 
-/** Starts fading inside the measured bar so its trailing edge does not form an opaque shelf. */
+/** Starts fading inside the collapsed bar so the title area stays legible while avoiding an opaque shelf. */
 private data class TopAppBarBandBrush(val color: Color) : ShaderBrush() {
     private val colors = opacities.map { color.copy(alpha = color.alpha * it) }
 
-    override fun createShader(size: Size): Shader = createShader(0f, size.height)
+    override fun createShader(size: Size): Shader = createBandShader(size, 0f, size.height)
 
-    fun createShader(fadeStart: Float, fadeHeight: Float): Shader = LinearGradientShader(
-        from = Offset(0f, fadeStart),
-        to = Offset(0f, fadeStart + fadeHeight.coerceAtLeast(1f)),
-        colors = colors,
-        colorStops = stops,
-    )
     fun createBandShader(size: Size, fadeStart: Float, fadeHeight: Float): Shader {
         val height = size.height.coerceAtLeast(1f)
         val start = fadeStart.coerceIn(0f, height)
@@ -177,10 +174,11 @@ private data class TopAppBarBandBrush(val color: Color) : ShaderBrush() {
         val fadeStops = stops.drop(1).map { stop ->
             (start + actualFadeHeight * stop).coerceAtMost(height) / height
         }
+        val topColor = colors.first()
         val colorStops = if (start > 0f) listOf(0f, start / height) + fadeStops else listOf(0f) + fadeStops
-        val gradientColors = if (start > 0f) listOf(color, color) + colors.drop(1) else listOf(color) + colors.drop(1)
+        val gradientColors = if (start > 0f) listOf(topColor, topColor) + colors.drop(1) else colors
         return LinearGradientShader(
-            from = Offset(0f, 0f),
+            from = Offset.Zero,
             to = Offset(0f, height),
             colors = gradientColors,
             colorStops = colorStops,
@@ -188,13 +186,15 @@ private data class TopAppBarBandBrush(val color: Color) : ShaderBrush() {
     }
 
     private companion object {
+        const val MAX_ALPHA = 0.90f
         val stops = List(17) { it / 16f }
         val opacities = stops.map { t ->
             val fade = t * t * t * (t * (t * 6f - 15f) + 10f)
-            1f - fade
+            MAX_ALPHA * (1f - fade)
         }
     }
 }
+
 private data class TopAppBarFadeBrush(
     val band: TopAppBarBandBrush,
     val fadeHeight: Float,
@@ -234,13 +234,12 @@ internal val LocalGlassTopAppBarContext = staticCompositionLocalOf<GlassTopAppBa
  * @param backdrop Background sampled by the buttons. `null` uses [fill].
  * @param modifier Modifier applied to the bar.
  * @param largeTitle Large title shown before content scrolls. Defaults to [title].
+ * @param expandable Whether the large title can expand. `false` keeps the compact title visible.
  * @param subtitle Optional subtitle below the title.
- * @param largeTitleBlurRadius Blur applied as the large title collapses.
+ * @param titleBlurRadius Maximum blur radius applied to titles during collapse/expand transitions.
  * @param scrollBehavior Behavior driving collapse and material visibility from actual content scroll.
  * @param visualContentOffset Content position in pixels, negative upward, including elastic displacement.
  *   Overrides band/shadow progress; pair with [isContentScrolled] for programmatic scrolling.
- * @param bandBrush Gradient that dims content passing beneath the bar.
- * @param bandOverhang Distance the gradient extends beyond the bar.
  * @param style Glass style forwarded to the renderer.
  * @param alpha Opacity multiplier for button colour layers and stroke.
  * @param buttonShape Button-pill silhouette.
@@ -264,6 +263,7 @@ fun GlassTopAppBar(
     title: String,
     modifier: Modifier = Modifier,
     contentModifier: Modifier = Modifier,
+    expandable: Boolean = true,
     progressiveBlur: Boolean = false,
     backdrop: Backdrop? = null,
     largeTitle: String = title,
@@ -272,7 +272,7 @@ fun GlassTopAppBar(
     visualContentOffset: (() -> Float)? = null,
     bandBrush: Brush = GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface),
     bandOverhang: Dp = GlassTopAppBarDefaults.BandOverhang,
-    largeTitleBlurRadius: Dp = GlassTopAppBarDefaults.LargeTitleBlurRadius,
+    titleBlurRadius: Dp = GlassTopAppBarDefaults.TitleBlurRadius,
     style: GlassStyle = GlassDefaults.Style,
     material: GlassMaterial = GlassTopAppBarDefaults.buttonMaterial(),
     alpha: Float = 1f,
@@ -299,6 +299,7 @@ fun GlassTopAppBar(
         title = title,
         isContentScrolled = isContentScrolled,
         modifier = modifier,
+        expandable = expandable,
         progressiveBlur = progressiveBlur,
         backdrop = backdrop,
         largeTitle = largeTitle,
@@ -307,7 +308,7 @@ fun GlassTopAppBar(
         visualContentOffset = visualContentOffset,
         bandBrush = bandBrush,
         bandOverhang = bandOverhang,
-        largeTitleBlurRadius = largeTitleBlurRadius,
+        titleBlurRadius = titleBlurRadius,
         style = style,
         material = material,
         alpha = alpha,
@@ -341,6 +342,7 @@ fun GlassTopAppBar(
     isContentScrolled: Boolean,
     modifier: Modifier = Modifier,
     contentModifier: Modifier = Modifier,
+    expandable: Boolean = true,
     progressiveBlur: Boolean = false,
     backdrop: Backdrop? = null,
     largeTitle: String = title,
@@ -349,7 +351,7 @@ fun GlassTopAppBar(
     visualContentOffset: (() -> Float)? = null,
     bandBrush: Brush = GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface),
     bandOverhang: Dp = GlassTopAppBarDefaults.BandOverhang,
-    largeTitleBlurRadius: Dp = GlassTopAppBarDefaults.LargeTitleBlurRadius,
+    titleBlurRadius: Dp = GlassTopAppBarDefaults.TitleBlurRadius,
     style: GlassStyle = GlassDefaults.Style,
     material: GlassMaterial = GlassTopAppBarDefaults.buttonMaterial(),
     alpha: Float = 1f,
@@ -407,9 +409,11 @@ fun GlassTopAppBar(
         gradientOverhang = if (bandBrush is TopAppBarBandBrush) bandOverhang else 0.dp,
     ) {
         if (progressiveBackdrop != null && rawBackdrop != null) {
-            val blurColors = BlurDefaults.blurColors(
-                blendColors = listOf(BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.3f))),
-            )
+            val surfaceColor = MiuixTheme.colorScheme.surface
+            val blendColors = remember(surfaceColor) {
+                listOf(BlendColorEntry(surfaceColor.copy(alpha = 0.3f)))
+            }
+            val blurColors = BlurDefaults.blurColors(blendColors = blendColors)
             Box(
                 modifier = Modifier
                     .onGloballyPositioned { backgroundCoordinates = it }
@@ -431,7 +435,7 @@ fun GlassTopAppBar(
             )
         } else {
             val overhangPx = with(LocalDensity.current) { bandOverhang.roundToPx().coerceAtLeast(0).toFloat() }
-            val fadeHeight = overhangPx + with(LocalDensity.current) { 12.dp.toPx() }
+            val fadeHeight = overhangPx + with(LocalDensity.current) { 36.dp.toPx() }
             val fadeBrush = remember(bandBrush, fadeHeight) {
                 if (bandBrush is TopAppBarBandBrush) TopAppBarFadeBrush(bandBrush, fadeHeight) else null
             }
@@ -478,8 +482,9 @@ fun GlassTopAppBar(
                 title = title,
                 modifier = contentModifier,
                 titleAlpha = titleAlpha,
+                expandable = expandable,
                 largeTitle = largeTitle,
-                largeTitleBlurRadius = largeTitleBlurRadius,
+                titleBlurRadius = titleBlurRadius,
                 subtitle = subtitle,
                 color = Color.Transparent,
                 scrollBehavior = scrollBehavior,
@@ -523,7 +528,8 @@ private fun GlassTopAppBarLayout(
         val width = constraints.constrainWidth(foreground.width)
         val height = constraints.constrainHeight(foreground.height)
         val bandHeight = if (progressiveBlur) {
-            val coveredHeight = topInsets.getTop(this) + TopAppBarDefaults.CollapsedHeight.toPx() + measurements.bottomContentHeight
+            val coveredHeight = topInsets.getTop(this) + TopAppBarDefaults.CollapsedHeight.toPx() +
+                measurements.bottomContentHeight
             ((coveredHeight + 20.dp.toPx()) * 1.2f).roundToInt()
         } else {
             height + gradientOverhang.roundToPx().coerceAtLeast(0)
@@ -534,4 +540,58 @@ private fun GlassTopAppBarLayout(
             foreground.placeRelative(0, 0)
         }
     }
+}
+
+@Composable
+internal fun BlurTopAppBar(
+    title: String,
+    titleBlurRadius: Dp,
+    modifier: Modifier = Modifier,
+    expandable: Boolean = true,
+    color: Color = MiuixTheme.colorScheme.surface,
+    titleColor: Color = MiuixTheme.colorScheme.onSurface,
+    largeTitle: String = title,
+    largeTitleColor: Color = MiuixTheme.colorScheme.onSurface,
+    subtitle: String = "",
+    subtitleColor: Color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+    scrollBehavior: ScrollBehavior? = null,
+    defaultWindowInsetsPadding: Boolean = true,
+    titlePadding: Dp = TopAppBarDefaults.TitlePadding,
+    navigationIconPadding: Dp = TopAppBarDefaults.NavigationIconPadding,
+    actionIconPadding: Dp = TopAppBarDefaults.ActionIconPadding,
+    titleAlpha: () -> Float = { 1f },
+    bottomContent: @Composable () -> Unit = {},
+) {
+    val actionsRow =
+        @Composable {
+            Row(
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+                content = actions,
+            )
+        }
+
+    TopAppBarLayout(
+        title = title,
+        titleAlpha = titleAlpha,
+        expandable = expandable,
+        color = color,
+        titleColor = titleColor,
+        largeTitle = largeTitle,
+        largeTitleColor = largeTitleColor,
+        titleBlurRadius = titleBlurRadius,
+        subtitle = subtitle,
+        subtitleColor = subtitleColor,
+        navigationIcon = navigationIcon,
+        actions = actionsRow,
+        titlePadding = titlePadding,
+        navigationIconPadding = navigationIconPadding,
+        actionIconPadding = actionIconPadding,
+        scrollBehavior = scrollBehavior,
+        modifier = modifier,
+        defaultWindowInsetsPadding = defaultWindowInsetsPadding,
+        bottomContent = bottomContent,
+    )
 }

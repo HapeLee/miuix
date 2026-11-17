@@ -83,6 +83,7 @@ These parameters are shared by both overloads:
 | title | String | Compact title | - | Yes |
 | modifier | Modifier | Modifier applied to the whole bar and background band | Modifier | No |
 | contentModifier | Modifier | Modifier applied only to the foreground bar | Modifier | No |
+| expandable | Boolean | Allow the large title to expand; false keeps the bar compact | true | No |
 | backdrop | Backdrop? | Background sampling source; null uses button fallback fills | null | No |
 | largeTitle | String | Expanded title | title | No |
 | subtitle | String | Subtitle | "" | No |
@@ -90,7 +91,7 @@ These parameters are shared by both overloads:
 | visualContentOffset | (() -> Float)? | Live signed content position in pixels, overriding the behavior's offset for visual effects | null | No |
 | bandBrush | Brush | Background band gradient | GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface) | No |
 | bandOverhang | Dp | Band extension below the bar | GlassTopAppBarDefaults.BandOverhang | No |
-| largeTitleBlurRadius | Dp | Blur radius as the large title fades out | GlassTopAppBarDefaults.LargeTitleBlurRadius | No |
+| titleBlurRadius | Dp | Maximum blur radius during title collapse/expand transitions | GlassTopAppBarDefaults.TitleBlurRadius | No |
 | style | GlassStyle | Rendering style; does not replace the default button material | GlassDefaults.Style | No |
 | alpha | Float | Additional button surface opacity multiplier | 1f | No |
 | buttonSize | Dp | Default diameter for nested glass buttons | GlassTopAppBarDefaults.ButtonSize | No |
@@ -119,10 +120,10 @@ The explicit-overlap overload adds one required parameter:
 | HorizontalPadding | Dp | Leading and trailing control inset | 12.dp |
 | RampStart | Dp | Shadow ramp start offset | 0.dp |
 | RampDistance | Dp | Scroll distance for the shadow ramp | 32.dp |
-| LargeTitleBlurRadius | Dp | Large-title blur radius | 12.dp |
+| TitleBlurRadius | Dp | Title transition blur radius | 8.dp |
 | ButtonSize | Dp | Button diameter | 44.dp |
 | PressedContentAlpha | Float | Content opacity while pressed | 0.6f |
-| BandOverhang | Dp | Band extension below the bar | 28.dp |
+| BandOverhang | Dp | Band extension below the bar | 36.dp |
 
 #### Methods
 
@@ -133,7 +134,7 @@ The explicit-overlap overload adds one required parameter:
 | buttonMaterial() | GlassMaterial | Theme-selected `GlassMaterials.puredThinGlass` |
 | buttonStroke() | EdgeStroke | `GlassEdgeStrokes.SmallLight` in light mode; `SmallDark` in dark mode |
 | buttonPressedOverlay() | Color | Black at 0.10 alpha in light mode; white at 0.14 alpha in dark mode |
-| bandBrush(color: Color) | Brush | Vertical page-color gradient, solid at the top and transparent at the bottom |
+| bandBrush(color: Color) | Brush | Vertical page-color gradient, smoothly fading from translucent near the top to transparent at the bottom |
 
 ## Advanced Usage
 

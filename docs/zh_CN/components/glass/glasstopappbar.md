@@ -83,6 +83,7 @@ Scaffold(
 | title | String | 紧凑标题 | - | 是 |
 | modifier | Modifier | 应用于整个顶栏和背景带的修饰符 | Modifier | 否 |
 | contentModifier | Modifier | 仅应用于前景顶栏的修饰符 | Modifier | 否 |
+| expandable | Boolean | 是否允许大标题展开，false 时固定折叠 | true | 否 |
 | backdrop | Backdrop? | 背景采样源，null 时按钮使用回退填充色 | null | 否 |
 | largeTitle | String | 展开时的大标题 | title | 否 |
 | subtitle | String | 副标题 | "" | 否 |
@@ -90,7 +91,7 @@ Scaffold(
 | visualContentOffset | (() -> Float)? | 实时有符号内容位置（像素），覆盖滚动行为中用于视觉效果的位移 | null | 否 |
 | bandBrush | Brush | 背景带渐变 | GlassTopAppBarDefaults.bandBrush(MiuixTheme.colorScheme.surface) | 否 |
 | bandOverhang | Dp | 背景带向顶栏下方延伸的距离 | GlassTopAppBarDefaults.BandOverhang | 否 |
-| largeTitleBlurRadius | Dp | 大标题淡出时的模糊半径 | GlassTopAppBarDefaults.LargeTitleBlurRadius | 否 |
+| titleBlurRadius | Dp | 标题收起/展开过渡时的最大模糊半径 | GlassTopAppBarDefaults.TitleBlurRadius | 否 |
 | style | GlassStyle | 渲染样式，不会替换默认按钮材质 | GlassDefaults.Style | 否 |
 | alpha | Float | 额外的按钮表面透明度乘数 | 1f | 否 |
 | buttonSize | Dp | 内嵌玻璃按钮的默认直径 | GlassTopAppBarDefaults.ButtonSize | 否 |
@@ -119,10 +120,10 @@ Scaffold(
 | HorizontalPadding | Dp | 前导与尾部控件边距 | 12.dp |
 | RampStart | Dp | 阴影渐变起始偏移 | 0.dp |
 | RampDistance | Dp | 阴影渐变对应的滚动距离 | 32.dp |
-| LargeTitleBlurRadius | Dp | 大标题模糊半径 | 12.dp |
+| TitleBlurRadius | Dp | 标题过渡模糊半径 | 8.dp |
 | ButtonSize | Dp | 按钮直径 | 44.dp |
 | PressedContentAlpha | Float | 按下时的内容透明度 | 0.6f |
-| BandOverhang | Dp | 背景带向顶栏下方延伸的距离 | 28.dp |
+| BandOverhang | Dp | 背景带向顶栏下方延伸的距离 | 36.dp |
 
 #### 方法
 
@@ -133,7 +134,7 @@ Scaffold(
 | buttonMaterial() | GlassMaterial | 随主题选择的 `GlassMaterials.puredThinGlass` |
 | buttonStroke() | EdgeStroke | 浅色模式为 `GlassEdgeStrokes.SmallLight`，深色模式为 `SmallDark` |
 | buttonPressedOverlay() | Color | 浅色模式为透明度 0.10 的黑色，深色模式为透明度 0.14 的白色 |
-| bandBrush(color: Color) | Brush | 使用页面颜色创建纵向渐变，顶部不透明，底部透明 |
+| bandBrush(color: Color) | Brush | 使用页面颜色创建纵向渐变，顶部半透明并平滑过渡至底部透明 |
 
 ## 进阶用法
 

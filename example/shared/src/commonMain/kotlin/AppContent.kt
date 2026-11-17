@@ -3,6 +3,7 @@
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,22 +19,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.captionBarPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
@@ -68,8 +64,10 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import component.liquid.IosLiquidGlassNavigationBar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import navigation.ComponentDemo
 import navigation.CrossActivityTransition
 import navigation.Navigator
 import navigation.Route
@@ -93,20 +91,29 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.ToolbarPosition
 import top.yukonga.miuix.kmp.basic.rememberNavigationRailState
+import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurDefaults
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
+import top.yukonga.miuix.kmp.glass.GlassFloatingActionButton
+import top.yukonga.miuix.kmp.glass.GlassFloatingToolbar
 import top.yukonga.miuix.kmp.glass.GlassNavigationBar
 import top.yukonga.miuix.kmp.glass.GlassNavigationItem
+import top.yukonga.miuix.kmp.glass.GlassNavigationRail
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailDefaults
+import top.yukonga.miuix.kmp.glass.GlassNavigationRailState
+import top.yukonga.miuix.kmp.glass.rememberGlassNavigationRailState
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Delete
 import top.yukonga.miuix.kmp.icon.extended.Edit
 import top.yukonga.miuix.kmp.icon.extended.Link
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.glass.DoodlePen
 import top.yukonga.miuix.kmp.icon.glass.EditSubtitle
+import top.yukonga.miuix.kmp.icon.glass.Hd
 import top.yukonga.miuix.kmp.icon.glass.HomeOutline
 import top.yukonga.miuix.kmp.icon.glass.ImageOutline
 import top.yukonga.miuix.kmp.icon.glass.SettingsOutline
@@ -121,9 +128,12 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
+import top.yukonga.miuix.kmp.nav.transition.NavMotion
+import top.yukonga.miuix.kmp.nav.transition.NavSettleSpec
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.nav.transition.NavTransition
 import top.yukonga.miuix.kmp.nav.transition.NavTransitions
+import top.yukonga.miuix.kmp.nav.transition.navGraphicsTransition
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
 import top.yukonga.miuix.kmp.utils.PagerInterceptionMode
@@ -132,8 +142,16 @@ import top.yukonga.miuix.kmp.utils.pagerGestureOverride
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
 import ui.isInDarkTheme
 import utils.FPSMonitor
+import utils.LocalAppPageInsets
+import utils.LocalTopAppBarTitleAlpha
+import utils.LocalTopLayer
+import utils.TopLayerHost
+import utils.TopLayerState
+import utils.rememberAppPageInsets
+import utils.rememberBlurBackdrop
 import utils.shouldExpandNavigationRail
 import utils.shouldShowSplitPane
+import kotlin.time.Duration.Companion.milliseconds
 
 private object UIConstants {
     const val MAIN_PAGE_INDEX = 0
@@ -173,10 +191,7 @@ fun AppContent(
         mainPagerState.syncPage()
     }
 
-    // miuix-nav back stack. The explicit <Route> supertype is required: a bare
-    // rememberNavBackStack(Route.Main) would infer T = the Route.Main singleton type and fail to
-    // encode the whole sealed hierarchy for save/restore. miuix-nav is reflection-free, so no
-    // SerializersModule / SavedStateConfiguration is needed for the @Serializable sealed Route.
+    // Explicit Route type preserves the sealed hierarchy for save/restore.
     val backStack = rememberNavBackStack<Route>(Route.Main)
     val navigator = remember { Navigator(backStack) }
 
@@ -194,14 +209,51 @@ fun AppContent(
 
     val isWideScreen = shouldShowSplitPane()
     val hasNavigationRail = isWideScreen && appState.showNavigationBar
+    // Plain rails occupy a column; glass rails overlay the page.
+    val useGlassSidebar = hasNavigationRail && appState.navigationRailStyle == 1
+    val expandSidebar = shouldExpandNavigationRail()
+    val sidebarState = rememberGlassNavigationRailState(initialExpanded = expandSidebar)
+    LaunchedEffect(expandSidebar) { sidebarState.expanded = expandSidebar }
+    val topAppBarTitleAlpha: () -> Float = remember(useGlassSidebar, sidebarState) {
+        if (useGlassSidebar) {
+            { sidebarState.progress }
+        } else {
+            { 1f }
+        }
+    }
+    LaunchedEffect(useGlassSidebar, sidebarState.expanded) {
+        mainPagerState.snapTransitions = useGlassSidebar && sidebarState.expanded
+    }
+    val sidebarBackdrop = if (useGlassSidebar) rememberBlurBackdrop() else null
+    // Blur needs a recorded page layer; otherwise use the surface color.
+    val pageInsets = rememberAppPageInsets(
+        hostPadding = padding,
+        startAlreadyReserved = hasNavigationRail && !useGlassSidebar,
+        overlayStart = {
+            if (useGlassSidebar) {
+                (GlassNavigationRailDefaults.Margin + GlassNavigationRailDefaults.ExpandedWidth) * sidebarState.progress
+            } else {
+                0.dp
+            }
+        },
+        searchTop = {
+            if (useGlassSidebar) {
+                (GlassNavigationRailDefaults.CollapsedTop + GlassNavigationRailDefaults.CollapsedHeight + 4.dp) * (1f - sidebarState.progress)
+            } else {
+                0.dp
+            }
+        },
+    )
+    val topLayer = remember { TopLayerState() }
 
     CompositionLocalProvider(
         LocalNavigator provides navigator,
         LocalMainPagerState provides mainPagerState,
         LocalIsWideScreen provides isWideScreen,
+        LocalTopAppBarTitleAlpha provides topAppBarTitleAlpha,
+        LocalAppPageInsets provides pageInsets,
     ) {
-        // Follow the device screen corner so the slide-in clip matches the platform (0 on
-        // Desktop/Web). The two-pane layout animates inside a mid-screen pane, so no screen corner.
+        // Match platform screen corners; split panes have no outer corner.
         val navCornerRadius = if (isWideScreen) 0.dp else rememberNavSystemCornerRadius()
         val isCrossActivityStyle = appState.navTransitionStyle == 1
         val backdropColor = MiuixTheme.colorScheme.surface
@@ -217,82 +269,114 @@ fun AppContent(
         ) {
             NavDisplayEffects(
                 enableCornerClip = appState.enableCornerClip,
-                // The cross-activity card should stay rounded on Desktop/Web too, where the
-                // platform reports no screen corner.
+                // Fallback radius for platforms without screen corners.
                 cornerClipRadius = if (isCrossActivityStyle && navCornerRadius <= 0.dp) 32.dp else navCornerRadius,
-                // The cross-activity card scales the whole page (round all four corners); the
-                // slide style rounds only the leading edge.
                 cornerClipMode = if (isCrossActivityStyle) NavCornerClipMode.All else NavCornerClipMode.Leading,
-                // The cross-activity style uses the platform scrim constants (0.2 light / 0.8
-                // dark); the slide style keeps the established 0.5.
-                // The scrim curve itself (hold-during-gesture for the card style, depth-linear
-                // for the slide style) is owned by each transition via NavTransition.scrimFraction.
+                // Card rounds all corners; slide rounds the leading edge.
+                // Card uses platform scrim amounts; slide uses 0.5.
                 dimAmount = when {
                     !appState.enableDim -> 0f
                     isCrossActivityStyle -> if (isDarkTheme) 0.8f else 0.2f
                     else -> 0.5f
                 },
                 blockInputDuringTransition = appState.blockInputDuringTransition,
-                // Fill the area revealed around scaled-down layers with the page background, like
-                // the platform's back-animation background layer.
                 backdropColor = backdropColor,
             )
         }
 
-        // Swipe-to-dismiss is opt-in in miuix-nav and off by default; the example gates it behind a
-        // setting. Directions are physical (not mirrored), so pick per layout direction: rightward
-        // back-swipe under LTR, leftward under RTL.
+        // Swipe direction is physical; mirror it for RTL.
         val swipeBackDirection = when {
             !appState.enableSwipeBack -> NavSwipeDirection.None
             LocalLayoutDirection.current == LayoutDirection.Rtl -> NavSwipeDirection.RightToLeft
             else -> NavSwipeDirection.LeftToRight
         }
 
-        // Global transition style: the established default, or the cross-activity feel — the
-        // latter is a fully custom transition defined in this app (navigation/CrossActivityTransition.kt)
-        // on the public API, not a library preset. Both are top-level singletons, so the
-        // expression itself is stable across recompositions.
-        val navTransition = if (isCrossActivityStyle) CrossActivityTransition else NavTransitions.MiuixDefault
-
-        // Keep NavDisplay at one composition location while adaptive chrome changes around it.
-        // Otherwise switching between the compact and wide branches recreates the current route.
-        Row(modifier = Modifier.fillMaxSize()) {
-            if (hasNavigationRail) {
-                PersistentNavigationRail(
-                    navigationItems = navigationItems,
-                    mainPagerState = mainPagerState,
-                )
+        var suppressNavTransition by remember { mutableStateOf(false) }
+        LaunchedEffect(navigator.backStack.size, navigator.backStack.lastOrNull()) {
+            if (suppressNavTransition) {
+                delay(50.milliseconds)
+                suppressNavTransition = false
             }
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    // The sibling rail already offsets this pane past the start-side safe area.
-                    // Share that consumption so page bars do not add the same inset again.
-                    .then(
-                        if (hasNavigationRail) {
-                            Modifier.consumeWindowInsets(
-                                WindowInsets.displayCutout
-                                    .union(WindowInsets.navigationBars)
-                                    .only(WindowInsetsSides.Start),
+        }
+        val navTransition = when {
+            suppressNavTransition -> InstantNavTransition
+            isCrossActivityStyle -> CrossActivityTransition
+            else -> NavTransitions.MiuixDefault
+        }
+
+        // Keep overlays above page content and the glass rail.
+        Scaffold(
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0),
+        ) {
+            CompositionLocalProvider(LocalTopLayer provides topLayer) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        if (hasNavigationRail && !useGlassSidebar) {
+                            PersistentNavigationRail(
+                                navigationItems = navigationItems,
+                                mainPagerState = mainPagerState,
                             )
-                        } else {
-                            Modifier
-                        },
-                    )
-                    // Wide-screen transition layers must not draw over the navigation rail.
-                    .then(if (isWideScreen) Modifier.clipToBounds() else Modifier),
-            ) {
-                AppNavHost(
-                    backStack = backStack,
-                    navigator = navigator,
-                    transition = navTransition,
-                    effects = effects,
-                    swipeBackDirection = swipeBackDirection,
-                    padding = padding,
-                    navigationItems = navigationItems,
-                    mainPagerState = mainPagerState,
-                )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                // Plain rails consume the inset; glass rails reserve it in page content.
+                                .then(
+                                    if (hasNavigationRail && !useGlassSidebar) {
+                                        Modifier.consumeWindowInsets(
+                                            pageInsets.windowInsets.only(WindowInsetsSides.Start),
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .then(
+                                    if (useGlassSidebar) {
+                                        Modifier.background(MiuixTheme.colorScheme.surface)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                                .then(if (isWideScreen) Modifier.clipToBounds() else Modifier),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (sidebarBackdrop != null) {
+                                            Modifier.layerBackdrop(sidebarBackdrop)
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                            ) {
+                                AppNavHost(
+                                    modifier = Modifier.fillMaxSize(),
+                                    backStack = backStack,
+                                    navigator = navigator,
+                                    transition = navTransition,
+                                    effects = effects,
+                                    swipeBackDirection = swipeBackDirection,
+                                    padding = pageInsets.safeInsets.asPaddingValues(),
+                                    navigationItems = navigationItems,
+                                    mainPagerState = mainPagerState,
+                                )
+                            }
+                            if (useGlassSidebar) {
+                                PersistentGlassNavigationRail(
+                                    navigationItems = navigationItems,
+                                    mainPagerState = mainPagerState,
+                                    backdrop = sidebarBackdrop,
+                                    state = sidebarState,
+                                    onBeforeNavigate = { suppressNavTransition = true },
+                                )
+                            }
+                        }
+                    }
+                    TopLayerHost(topLayer)
+                }
             }
         }
     }
@@ -321,16 +405,17 @@ private fun AppNavHost(
     padding: PaddingValues,
     navigationItems: List<NavigationItem>,
     mainPagerState: MainPagerState,
+    modifier: Modifier = Modifier,
 ) {
     NavDisplay(
         backStack = backStack,
+        modifier = modifier,
         onBack = { navigator.pop() },
         transition = transition,
         effects = effects,
     ) {
         entry<Route.Main>(swipeDismiss = swipeBackDirection) {
             Home(
-                padding = padding,
                 navigationItems = navigationItems,
                 mainPagerState = mainPagerState,
             )
@@ -369,10 +454,7 @@ private fun AppNavHost(
     }
 }
 
-/**
- * Wide-screen chrome: the always-visible navigation rail on the left of the two-pane layout.
- * A rail tab first pops the pane's stack back to the main route, then switches the pager.
- */
+/** Persistent rail for wide layouts. */
 @Composable
 private fun PersistentNavigationRail(
     navigationItems: List<NavigationItem>,
@@ -389,6 +471,10 @@ private fun PersistentNavigationRail(
         if (expandRail) railState.expand() else railState.collapse()
     }
     NavigationRail(
+        modifier = Modifier
+            .background(MiuixTheme.colorScheme.surface)
+            .windowInsetsPadding(LocalAppPageInsets.current.windowInsets.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical)),
+        defaultWindowInsetsPadding = false,
         state = railState,
     ) {
         navigationItems.forEachIndexed { index, item ->
@@ -406,14 +492,82 @@ private fun PersistentNavigationRail(
     }
 }
 
+/** Floating glass rail over the page's start edge. */
+@Composable
+private fun PersistentGlassNavigationRail(
+    navigationItems: List<NavigationItem>,
+    mainPagerState: MainPagerState,
+    backdrop: LayerBackdrop?,
+    state: GlassNavigationRailState,
+    onBeforeNavigate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val appState = LocalAppState.current
+    val navigator = LocalNavigator.current
+    val currentRoute = navigator.backStack.lastOrNull()
+    val page = mainPagerState.selectedPage
+    val items = remember(navigationItems, appState.showNavigationBarBadge) {
+        navigationItems.mapIndexed { index, item ->
+            GlassNavigationItem(
+                icon = item.icon,
+                label = item.label,
+                badge = navigationItemBadge(index, appState.showNavigationBarBadge),
+            )
+        }
+    }
+    val secondaryRoutes = remember {
+        listOf(
+            Route.Component(ComponentDemo.Preferences),
+            Route.Glass,
+        )
+    }
+    val secondaryItems = remember {
+        listOf(
+            GlassNavigationItem(icon = MiuixIcons.Glass.DoodlePen, label = "Preferences"),
+            GlassNavigationItem(icon = MiuixIcons.Glass.Hd, label = "Glass"),
+        )
+    }
+    val selectedIndex = when (currentRoute) {
+        is Route.Main -> page
+
+        else -> {
+            val secondaryIndex = secondaryRoutes.indexOf(currentRoute)
+            if (secondaryIndex >= 0) items.size + secondaryIndex else -1
+        }
+    }
+    GlassNavigationRail(
+        items = items,
+        selectedIndex = selectedIndex,
+        onSelect = { index ->
+            if (index < items.size) {
+                if (currentRoute !is Route.Main) {
+                    onBeforeNavigate()
+                    navigator.popUntil { route -> route is Route.Main }
+                }
+                mainPagerState.animateToPage(index)
+            } else {
+                val targetRoute = secondaryRoutes[index - items.size]
+                if (currentRoute != targetRoute) {
+                    onBeforeNavigate()
+                    navigator.popUntil { route -> route is Route.Main }
+                    navigator.push(targetRoute)
+                }
+            }
+        },
+        backdrop = backdrop,
+        modifier = modifier.windowInsetsPadding(LocalAppPageInsets.current.windowInsets),
+        state = state,
+        secondaryItems = secondaryItems,
+        defaultWindowInsetsPadding = false,
+    )
+}
+
 @Composable
 private fun Home(
-    padding: PaddingValues,
     navigationItems: List<NavigationItem>,
     mainPagerState: MainPagerState,
 ) {
     val isWideScreen = LocalIsWideScreen.current
-    val layoutDirection = LocalLayoutDirection.current
     val pagerContent = remember(mainPagerState.pagerState) {
         movableContentOf<PaddingValues, Modifier> { pagerPadding, pagerModifier ->
             AppPager(
@@ -426,13 +580,11 @@ private fun Home(
     Scaffold {
         if (isWideScreen) {
             WideScreenContent(
-                layoutDirection = layoutDirection,
                 pagerContent = pagerContent,
             )
         } else {
             CompactScreenLayout(
                 navigationItems = navigationItems,
-                padding = padding,
                 mainPagerState = mainPagerState,
                 pagerContent = pagerContent,
             )
@@ -442,40 +594,41 @@ private fun Home(
 
 @Composable
 private fun WideScreenContent(
-    layoutDirection: LayoutDirection,
     pagerContent: @Composable (PaddingValues, Modifier) -> Unit,
 ) {
     val appState = LocalAppState.current
     Scaffold(
         modifier = Modifier
             .fillMaxSize(),
-        contentWindowInsets =
-        WindowInsets.systemBars.union(
-            if (appState.showNavigationBar) {
-                WindowInsets.displayCutout.exclude(
-                    WindowInsets.displayCutout.only(WindowInsetsSides.Start),
-                )
-            } else {
-                WindowInsets.displayCutout
-            },
-        ),
+        contentWindowInsets = LocalAppPageInsets.current.contentInsets,
         floatingActionButton = {
-            FloatingActionButton(show = appState.showFloatingActionButton)
+            FloatingActionButton(
+                show = appState.showFloatingActionButton,
+                style = appState.floatingActionButtonStyle,
+            )
         },
         floatingActionButtonPosition = appState.floatingActionButtonPosition.toFabPosition(),
         floatingToolbar = {
             FloatingToolbar(
                 showFloatingToolbar = appState.showFloatingToolbar,
                 floatingToolbarOrientation = appState.floatingToolbarOrientation,
+                style = appState.floatingToolbarStyle,
             )
         },
         floatingToolbarPosition = appState.floatingToolbarPosition.toToolbarPosition(),
     ) { padding ->
+        val pagePadding by remember(padding) {
+            derivedStateOf {
+                PaddingValues(
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding(),
+                )
+            }
+        }
+        // Pages own horizontal safe areas; the pager stays full width for backdrop recording.
         pagerContent(
-            PaddingValues(top = padding.calculateTopPadding()),
-            Modifier
-                .imePadding()
-                .padding(end = padding.calculateEndPadding(layoutDirection)),
+            pagePadding,
+            Modifier.imePadding(),
         )
     }
 }
@@ -483,7 +636,6 @@ private fun WideScreenContent(
 @Composable
 private fun CompactScreenLayout(
     navigationItems: List<NavigationItem>,
-    padding: PaddingValues,
     mainPagerState: MainPagerState,
     pagerContent: @Composable (PaddingValues, Modifier) -> Unit,
 ) {
@@ -495,22 +647,28 @@ private fun CompactScreenLayout(
     }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = LocalAppPageInsets.current.safeInsets,
         bottomBar = {
             NavigationBar(
                 navigationItems = navigationItems,
                 mainPagerState = mainPagerState,
                 backdrop = backdrop,
-                modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
             )
         },
         floatingActionButton = {
-            FloatingActionButton(show = appState.showFloatingActionButton)
+            FloatingActionButton(
+                show = appState.showFloatingActionButton,
+                style = appState.floatingActionButtonStyle,
+                backdrop = backdrop,
+            )
         },
         floatingActionButtonPosition = appState.floatingActionButtonPosition.toFabPosition(),
         floatingToolbar = {
             FloatingToolbar(
                 showFloatingToolbar = appState.showFloatingToolbar,
                 floatingToolbarOrientation = appState.floatingToolbarOrientation,
+                style = appState.floatingToolbarStyle,
+                backdrop = backdrop,
             )
         },
         floatingToolbarPosition = appState.floatingToolbarPosition.toToolbarPosition(),
@@ -518,13 +676,7 @@ private fun CompactScreenLayout(
         Box(modifier = Modifier.fillMaxSize().layerBackdrop(backdrop)) {
             pagerContent(
                 innerPadding,
-                Modifier
-                    .padding(
-                        top = padding.calculateTopPadding(),
-                        start = padding.calculateStartPadding(LocalLayoutDirection.current),
-                        end = padding.calculateEndPadding(LocalLayoutDirection.current),
-                    )
-                    .imePadding(),
+                Modifier.imePadding(),
             )
         }
     }
@@ -535,7 +687,6 @@ private fun NavigationBar(
     navigationItems: List<NavigationItem>,
     mainPagerState: MainPagerState,
     backdrop: LayerBackdrop?,
-    modifier: Modifier = Modifier,
 ) {
     val appState = LocalAppState.current
     val blurActive = appState.enableBlur && backdrop != null && isRuntimeShaderSupported()
@@ -575,8 +726,7 @@ private fun NavigationBar(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {},
-                    )
-                    .then(modifier),
+                    ),
             ) {
                 NavigationBar(
                     modifier = Modifier,
@@ -602,11 +752,17 @@ private fun NavigationBar(
             val floatingStroke: EdgeStroke = remember(isDark) {
                 if (isDark) EdgeStrokes.MiddleDark else EdgeStrokes.MiddleLight
             }
-            Box(modifier = modifier) {
+            Box {
                 when (appState.floatingNavigationBarStyle) {
                     1 -> {
-                        val glassItems = remember(navigationItems) {
-                            navigationItems.map { GlassNavigationItem(icon = it.icon, label = it.label) }
+                        val glassItems = remember(navigationItems, appState.showNavigationBarBadge) {
+                            navigationItems.mapIndexed { index, item ->
+                                GlassNavigationItem(
+                                    icon = item.icon,
+                                    label = item.label,
+                                    badge = navigationItemBadge(index, appState.showNavigationBarBadge),
+                                )
+                            }
                         }
                         GlassNavigationBar(
                             items = glassItems,
@@ -675,19 +831,36 @@ private fun NavigationBar(
 @Composable
 private fun FloatingActionButton(
     show: Boolean,
+    style: Int,
+    backdrop: Backdrop? = null,
 ) {
     if (show) {
         val uriHandler = LocalUriHandler.current
-        FloatingActionButton(
-            onClick = {
-                uriHandler.openUri(UIConstants.GITHUB_URL)
-            },
-        ) {
-            Icon(
-                imageVector = MiuixIcons.Link,
-                tint = MiuixTheme.colorScheme.onPrimary,
-                contentDescription = "GitHub",
-            )
+        if (style == 1) {
+            GlassFloatingActionButton(
+                onClick = {
+                    uriHandler.openUri(UIConstants.GITHUB_URL)
+                },
+                backdrop = backdrop,
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Link,
+                    tint = MiuixTheme.colorScheme.onPrimary,
+                    contentDescription = "GitHub",
+                )
+            }
+        } else {
+            FloatingActionButton(
+                onClick = {
+                    uriHandler.openUri(UIConstants.GITHUB_URL)
+                },
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Link,
+                    tint = MiuixTheme.colorScheme.onPrimary,
+                    contentDescription = "GitHub",
+                )
+            }
         }
     }
 }
@@ -696,20 +869,23 @@ private fun FloatingActionButton(
 private fun FloatingToolbar(
     showFloatingToolbar: Boolean,
     floatingToolbarOrientation: Int,
+    style: Int,
+    backdrop: Backdrop? = null,
 ) {
     AnimatedVisibility(
         visible = showFloatingToolbar,
         enter = fadeIn(),
         exit = fadeOut(),
     ) {
-        FloatingToolbar(
-            color = MiuixTheme.colorScheme.primary,
-            cornerRadius = 20.dp,
-        ) {
+        val toolbarContent: @Composable () -> Unit = {
             AnimatedContent(
                 targetState = floatingToolbarOrientation,
             ) { orientation ->
-                val iconTint = MiuixTheme.colorScheme.onPrimary
+                val iconTint = if (style == 1) {
+                    MiuixTheme.colorScheme.onSurface
+                } else {
+                    MiuixTheme.colorScheme.onPrimary
+                }
                 val content = @Composable {
                     IconButton(onClick = { /* Action 1 */ }) {
                         Icon(
@@ -746,6 +922,21 @@ private fun FloatingToolbar(
                 }
             }
         }
+        if (style == 1) {
+            GlassFloatingToolbar(
+                backdrop = backdrop,
+                cornerRadius = 20.dp,
+            ) {
+                toolbarContent()
+            }
+        } else {
+            FloatingToolbar(
+                color = MiuixTheme.colorScheme.primary,
+                cornerRadius = 20.dp,
+            ) {
+                toolbarContent()
+            }
+        }
     }
 }
 
@@ -773,10 +964,7 @@ private fun FloatingNavigationBarAlignment.toAlignment(): Alignment.Horizontal =
     FloatingNavigationBarAlignment.End -> Alignment.End
 }
 
-/**
- * The optional badge for navigation item [index], shown only when [show] is enabled: a numeric badge
- * on one item and a dot badge on another to showcase both styles. Returns null when disabled.
- */
+/** Optional demo badge for a navigation item. */
 private fun navigationItemBadge(index: Int, show: Boolean): (@Composable () -> Unit)? = when {
     !show -> null
     index == 1 -> ({ Badge { Text("8") } })
@@ -860,6 +1048,7 @@ class MainPagerState(
 
     var isNavigating by mutableStateOf(false)
         private set
+    var snapTransitions by mutableStateOf(false)
 
     private var navJob: Job? = null
 
@@ -874,7 +1063,11 @@ class MainPagerState(
         navJob = coroutineScope.launch {
             val myJob = coroutineContext.job
             try {
-                pagerState.springAnimateToPage(targetIndex)
+                if (snapTransitions) {
+                    pagerState.scrollToPage(targetIndex)
+                } else {
+                    pagerState.springAnimateToPage(targetIndex)
+                }
             } finally {
                 if (navJob == myJob) {
                     isNavigating = false
@@ -900,3 +1093,11 @@ fun rememberMainPagerState(
 ): MainPagerState = remember(pagerState, coroutineScope) {
     MainPagerState(pagerState, coroutineScope)
 }
+
+private val InstantNavTransition: NavTransition = navGraphicsTransition(
+    opaqueDepth = 1f,
+    dismissDirection = NavSwipeDirection.None,
+    motion = NavMotion(
+        programmatic = NavSettleSpec.Tween(durationMillis = 0, easing = LinearEasing),
+    ),
+) {}

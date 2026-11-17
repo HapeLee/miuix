@@ -33,24 +33,25 @@ internal actual fun runtimeShaderEffect(
 
 internal actual fun progressiveStackEffect(
     scope: BackdropEffectScopeImpl,
-    sigma0X: Float,
-    sigma0Y: Float,
-    sigma1X: Float,
-    sigma1Y: Float,
-    sigma2X: Float,
-    sigma2Y: Float,
-    ax: Float,
-    ay: Float,
-    projFull: Float,
-    projZero: Float,
+    fullSigmaX: Float,
+    fullSigmaY: Float,
+    lightSigmaX: Float,
+    lightSigmaY: Float,
+    gradVecX: Float,
+    gradVecY: Float,
+    gradOffset: Float,
     curve: Float,
     preEffect: RenderEffect?,
     postEffect: RenderEffect?,
     nativeSharpEnd: Boolean,
+    unpremulBase: Boolean,
 ): RenderEffect? {
-    val shader = scope.obtainRuntimeShader("ProgComposite", PROGRESSIVE_COMPOSITE_SHADER).apply {
-        setFloatUniform("in_gradAxis", ax, ay)
-        setFloatUniform("in_gradBand", projFull, projZero)
+    val shader = scope.obtainRuntimeShader(
+        if (nativeSharpEnd) "ProgCompositeSharp" else "ProgComposite",
+        if (nativeSharpEnd) PROGRESSIVE_COMPOSITE_SHARP_SHADER else PROGRESSIVE_COMPOSITE_SHADER,
+    ).apply {
+        setFloatUniform("in_gradVec", gradVecX, gradVecY)
+        setFloatUniform("in_gradOffset", gradOffset)
         setFloatUniform("in_curve", curve)
     }
     val pre = preEffect?.skiaImageFilter
@@ -62,24 +63,34 @@ internal actual fun progressiveStackEffect(
         ImageFilter.makeBlur(sigmaX, sigmaY, FilterTileMode.CLAMP, pre, null)
     }
 
-    // clearChild := blur2 by default, degenerating the last mix segment (the sharp end is the
+    // clearChild := lightBlur by default, degenerating the last mix segment (the sharp end is the
     // caller's full-res overlay); with nativeSharpEnd the (pre-chained) source binds instead —
-    // a null child samples the source. Skia evaluates the shared blur2 instance once.
-    val blur2 = level(sigma2X, sigma2Y)
-    var filter = ImageFilter.makeRuntimeShader(
-        shader.asSkikoRuntimeShader(),
-        arrayOf("clearChild", "blur0", "blur1", "blur2"),
-        arrayOf(
-            if (nativeSharpEnd) pre else blur2,
-            level(sigma0X, sigma0Y),
-            level(sigma1X, sigma1Y),
-            blur2,
-        ),
-    )
+    // a null child samples the source. Skia evaluates the shared lightBlur instance once.
+    val lightBlur = level(lightSigmaX, lightSigmaY)
+    var filter = if (nativeSharpEnd) {
+        ImageFilter.makeRuntimeShader(
+            shader.asSkikoRuntimeShader(),
+            arrayOf("clearChild", "fullBlur", "lightBlur"),
+            arrayOf(
+                pre,
+                level(fullSigmaX, fullSigmaY),
+                lightBlur,
+            ),
+        )
+    } else {
+        ImageFilter.makeRuntimeShader(
+            shader.asSkikoRuntimeShader(),
+            arrayOf("fullBlur", "lightBlur"),
+            arrayOf(
+                level(fullSigmaX, fullSigmaY),
+                lightBlur,
+            ),
+        )
+    }
     if (postEffect != null) {
         val maskShader = scope.obtainRuntimeShader("ProgLevelMask", PROGRESSIVE_LEVEL_MASK_SHADER).apply {
-            setFloatUniform("in_gradAxis", ax, ay)
-            setFloatUniform("in_gradBand", projFull, projZero)
+            setFloatUniform("in_gradVec", gradVecX, gradVecY)
+            setFloatUniform("in_gradOffset", gradOffset)
             setFloatUniform("in_curve", curve)
             setFloatUniform("in_level", 1f)
             setFloatUniform("in_slope", 1f)
